@@ -19,6 +19,8 @@ main{padding:8px}
 .studio-layout{display:grid;grid-template-columns:190px 1fr 300px;gap:8px;align-items:start}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
 .panel-head{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin:4px 0}
+.new-file-row{display:flex;gap:4px;margin:4px 0}
+.new-file-row input{flex:1;min-width:0}
 .file-list{list-style:none;margin:0;padding:0}
 .file-list li{padding:5px 7px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;gap:4px}
 .file-list li.active{background:var(--acc);color:#fff}
