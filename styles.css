@@ -19,6 +19,10 @@ main{padding:8px}
 .studio-layout{display:grid;grid-template-columns:190px 1fr 300px;gap:8px;align-items:start}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
 .panel-head{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin:4px 0}
+.tpl-detail{border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0;max-height:300px;overflow:auto;font-size:.86rem}
+.tpl-detail h4{margin:2px 0 4px}
+.tpl-detail .tpl-btns{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.term-link{background:none;border:none;padding:0;color:var(--accent);text-decoration:underline dotted;cursor:pointer;font:inherit}
 .new-file-row{display:flex;gap:4px;margin:4px 0}
 .new-file-row input{flex:1;min-width:0}
 .file-list{list-style:none;margin:0;padding:0}
