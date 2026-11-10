@@ -37,16 +37,12 @@ async function runCode(msg) {
   pyodide.setStdout({ batched: s => { stdout += s + '\n'; } });
   pyodide.setStderr({ batched: s => { stderr += s + '\n'; } });
   if (msg.stdin != null) {
-    const lines = String(msg.stdin).split('\n');
+    const bytes = new TextEncoder().encode(String(msg.stdin).endsWith('\n') ? String(msg.stdin) : String(msg.stdin) + '\n');
     let i = 0;
-    pyodide.setStdin({ stdin: () => {
-      if (i >= lines.length) return null;
-      const bytes = new TextEncoder().encode(lines[i++] + '\n');
-      return bytes;
-    }});
+    pyodide.setStdin({ stdin: () => (i < bytes.length ? bytes[i++] : null) });
   }
   try {
-    // write multi-file project into the virtual FS
+    // write multi-file project into the virtual FS ('base64:' prefix = binary file)
     if (msg.files) {
       for (const [name, content] of Object.entries(msg.files)) {
         const parts = name.split('/');
@@ -54,12 +50,21 @@ async function runCode(msg) {
           const dir = parts.slice(0, d).join('/');
           try { pyodide.FS.mkdir(dir); } catch (e) {}
         }
-        pyodide.FS.writeFile(name, content);
+        if (typeof content === 'string' && content.startsWith('base64:')) {
+          const bin = atob(content.slice(7));
+          const arr = new Uint8Array(bin.length);
+          for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
+          pyodide.FS.writeFile(name, arr);
+        } else {
+          pyodide.FS.writeFile(name, content);
+        }
       }
     }
     if (msg.packages && msg.packages.length) {
       await pyodide.loadPackage(msg.packages);
     }
+    // auto-load Pyodide packages (numpy/pandas/matplotlib...) that the code imports
+    try { await pyodide.loadPackagesFromImports(msg.code); } catch (e) {}
     await pyodide.runPythonAsync(msg.code);
     // capture a matplotlib figure if one is open
     try {
@@ -110,13 +115,13 @@ onmessage = async (ev) => {
   try {
     if (msg.type === 'run') await runCode(msg);
     else if (msg.type === 'check') await checkCode(msg);
-    else if (msg.type === 'load') { await ready; await pyodide.loadPackage(msg.packages); postMessage({ type: 'loaded', packages: msg.packages }); }
+    else if (msg.type === 'load') { await ready; await pyodide.loadPackage(msg.packages); postMessage({ type: 'loaded', id: msg.id, packages: msg.packages }); }
     else if (msg.type === 'reset') { await ready; pyodide.runPython(`
 import sys
 for _k in list(globals().keys()):
     if not _k.startswith('__'):
         del globals()[_k]
-`); postMessage({ type: 'reset-done' }); }
+`); postMessage({ type: 'reset-done', id: msg.id }); }
   } catch (e) {
     postMessage({ type: 'result', id: msg.id, stdout: '', stderr: '', error: String(e), ms: 0, image: null, vars: [] });
   }
