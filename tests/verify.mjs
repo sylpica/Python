@@ -4,6 +4,7 @@ import { QUIZZES } from '../data/quizzes.js';
 import { REFERENCE } from '../data/reference.js';
 import { GLOSSARY } from '../data/glossary.js';
 import { MISTAKES } from '../data/extras.js';
+import { TEMPLATES } from '../data/templates.js';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 let fails = [];
@@ -23,6 +24,11 @@ const pos = [0, 0, 0, 0];
 for (const q of QUIZZES) { pos[q.answer]++; if (q.options.length !== 4) fails.push(`quiz ${q.id} options!=4`); if (!q.lesson || !lids.has(q.lesson)) fails.push(`quiz ${q.id} bad lesson link`); }
 const spread = Math.max(...pos) - Math.min(...pos);
 if (spread > 2) fails.push(`quiz answer position spread too large: ${pos}`);
-console.log(`lessons=${LESSONS.length} quizzes=${QUIZZES.length} reference=${REFERENCE.length} glossary=${GLOSSARY.length} mistakes=${MISTAKES.length} positions=${pos.join('/')}`);
+for (const t of TEMPLATES) {
+  const r = runPy(t.code);
+  if (r.err || r.out !== t.expected) fails.push(`template ${t.id} output mismatch: got ${JSON.stringify(r.out || r.err)}`);
+  if (!t.explain || !t.file) fails.push(`template ${t.id} missing explain/file`);
+}
+console.log(`lessons=${LESSONS.length} quizzes=${QUIZZES.length} reference=${REFERENCE.length} glossary=${GLOSSARY.length} mistakes=${MISTAKES.length} templates=${TEMPLATES.length} positions=${pos.join('/')}`);
 if (fails.length) { console.log('FAIL:\n' + fails.join('\n')); process.exit(1); }
 console.log('ALL CHECKS PASS');
