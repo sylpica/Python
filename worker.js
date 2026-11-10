@@ -8,6 +8,10 @@ importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
 let pyodide = null;
 let ready = (async () => {
   pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/' });
+  // A Web Worker has no DOM: matplotlib's browser (wasm) backend fails importing
+  // `document` from js. Force the Agg backend so pyplot works and figures are
+  // captured as PNG by the run handler below.
+  pyodide.runPython("import os; os.environ['MPLBACKEND'] = 'Agg'");
   postMessage({ type: 'ready', python: pyodide.runPython('import sys; sys.version.split()[0]') });
 })();
 

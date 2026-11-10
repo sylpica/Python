@@ -37,6 +37,10 @@
     <div class="studio-layout">
       <aside class="panel files-panel">
         <div class="panel-head"><span>ファイル</span><button id="addFileBtn">＋</button></div>
+        <div id="newFileRow" class="new-file-row hidden">
+          <input id="newFileName" type="text" placeholder="例: utils.py" aria-label="新しいファイル名">
+          <button id="createFileBtn">作成</button>
+        </div>
         <ul id="fileList" class="file-list"></ul>
         <div class="panel-head"><span>パッケージ読込</span></div>
         <div class="pkg-btns">

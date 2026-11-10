@@ -174,9 +174,16 @@ $('#fileList').addEventListener('click', e => {
   const li = e.target.closest('[data-file]'); if (li) switchFile(li.dataset.file);
 });
 $('#addFileBtn').addEventListener('click', () => {
-  const name = prompt('新しいファイル名（例: utils.py）'); if (!name) return;
-  files[name] = ''; switchFile(name);
+  const row = $('#newFileRow'); row.classList.toggle('hidden');
+  if (!row.classList.contains('hidden')) $('#newFileName').focus();
 });
+function createNamedFile(){
+  const name = $('#newFileName').value.trim(); if (!name) return;
+  if (files[name] != null) { switchFile(name); return; }
+  files[name] = ''; $('#newFileName').value = ''; $('#newFileRow').classList.add('hidden'); switchFile(name);
+}
+$('#createFileBtn').addEventListener('click', createNamedFile);
+$('#newFileName').addEventListener('keydown', e => { if (e.key === 'Enter') createNamedFile(); });
 function explainError(errText){
   const rules = [
     [/IndentationError/, 'インデント（字下げ）が揃っていません。スペース4つで統一し、前の行と深さを確認してください。', 'indent'],

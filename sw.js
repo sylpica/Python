@@ -1,6 +1,6 @@
 /* Service Worker: cache the app shell + learning data for offline use.
    Pyodide/Monaco CDN assets are runtime-cached after first download. */
-const CACHE = 'python-studio-v4';
+const CACHE = 'python-studio-v5';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'worker.js', 'manifest.webmanifest', 'icon.svg',
   'data/lessons.js', 'data/quizzes.js', 'data/reference.js', 'data/glossary.js', 'data/extras.js'];
 self.addEventListener('install', e => {
