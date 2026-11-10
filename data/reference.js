@@ -1,0 +1,828 @@
+export const REFERENCE = [
+  {
+    "id": "print",
+    "name": "print()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "値を画面（標準出力）に表示する関数。",
+    "syntax": "print(*values, sep=' ', end='\\n')",
+    "args": "values: 表示する値（複数可）。sep: 区切り文字、end: 末尾文字",
+    "returns": "None（表示のみで値は返さない）",
+    "example": "print(\"合計:\", 3 + 4)",
+    "expected": "合計: 7",
+    "pitfalls": "カンマ区切りでは自動で空白が入る。文字列と数値を + でつなぐと TypeError になる。",
+    "related": [
+      "str",
+      "len"
+    ],
+    "lesson": "variables-types"
+  },
+  {
+    "id": "len",
+    "name": "len()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "文字列・リスト・辞書などの要素数（長さ）を返す関数。",
+    "syntax": "len(obj)",
+    "args": "obj: 長さを持つオブジェクト",
+    "returns": "int: 要素数",
+    "example": "print(len([10, 20, 30]))",
+    "expected": "3",
+    "pitfalls": "整数や浮動小数点数には使えない（TypeError）。辞書ではキーの数を返す。",
+    "related": [
+      "list",
+      "dict",
+      "str"
+    ],
+    "lesson": "variables-types"
+  },
+  {
+    "id": "sum",
+    "name": "sum()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "数値のイテラブル（リストなど）の合計を返す関数。",
+    "syntax": "sum(iterable, start=0)",
+    "args": "iterable: 数値の集まり、start: 初期値",
+    "returns": "数値: 合計値",
+    "example": "print(sum([1, 2, 3, 4]))",
+    "expected": "10",
+    "pitfalls": "文字列のリストには使えない。文字列の結合には str.join() を使う。",
+    "related": [
+      "list",
+      "min",
+      "max"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "min",
+    "name": "min()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "イテラブルの中の最小の要素を返す関数。",
+    "syntax": "min(iterable)",
+    "args": "iterable: 比較可能な要素の集まり",
+    "returns": "最小の要素",
+    "example": "print(min([5, 2, 8]))",
+    "expected": "2",
+    "pitfalls": "空のイテラブルを渡すと ValueError。文字列同士では辞書式順序で比較される。",
+    "related": [
+      "max",
+      "sorted",
+      "sum"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "max",
+    "name": "max()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "イテラブルの中の最大の要素を返す関数。",
+    "syntax": "max(iterable)",
+    "args": "iterable: 比較可能な要素の集まり",
+    "returns": "最大の要素",
+    "example": "print(max([5, 2, 8]))",
+    "expected": "8",
+    "pitfalls": "空のイテラブルを渡すと ValueError。数値と文字列を混ぜると TypeError。",
+    "related": [
+      "min",
+      "sorted",
+      "sum"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "range",
+    "name": "range()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "連続した整数の列を表すオブジェクトを作る関数。",
+    "syntax": "range(stop) / range(start, stop, step)",
+    "args": "start: 開始値（既定0）、stop: 終了値（この値自体は含まない）、step: 間隔",
+    "returns": "range オブジェクト",
+    "example": "print(list(range(1, 6, 2)))",
+    "expected": "[1, 3, 5]",
+    "pitfalls": "stop の値は含まれない。range(5) は 0〜4。リストとして表示するには list() が必要。",
+    "related": [
+      "for",
+      "list",
+      "enumerate"
+    ],
+    "lesson": "loops"
+  },
+  {
+    "id": "enumerate",
+    "name": "enumerate()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "イテラブルに連番（インデックス）を付けて取り出す関数。",
+    "syntax": "enumerate(iterable, start=0)",
+    "args": "iterable: 対象、start: 連番の開始値",
+    "returns": "(インデックス, 要素) のペアを順に返すイテレータ",
+    "example": "print(list(enumerate([\"a\", \"b\"], start=1)))",
+    "expected": "[(1, 'a'), (2, 'b')]",
+    "pitfalls": "start を指定しなければ 0 から始まる。手作業でカウンタを増やすより確実。",
+    "related": [
+      "range",
+      "for",
+      "zip"
+    ],
+    "lesson": "loops"
+  },
+  {
+    "id": "zip",
+    "name": "zip()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "複数のイテラブルを要素ごとに組にして取り出す関数。",
+    "syntax": "zip(iterable1, iterable2, ...)",
+    "args": "各イテラブル",
+    "returns": "タプルのイテレータ",
+    "example": "print(list(zip([1, 2], [\"a\", \"b\"])))",
+    "expected": "[(1, 'a'), (2, 'b')]",
+    "pitfalls": "長さが異なる場合、最短の長さで止まる（余りは切り捨てられる）。",
+    "related": [
+      "enumerate",
+      "for",
+      "list"
+    ],
+    "lesson": "loops"
+  },
+  {
+    "id": "sorted",
+    "name": "sorted()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "イテラブルを並べ替えた新しいリストを返す関数。",
+    "syntax": "sorted(iterable, key=None, reverse=False)",
+    "args": "iterable: 対象、key: 並べ替え基準、reverse: True で降順",
+    "returns": "list: 並べ替え済みの新しいリスト",
+    "example": "print(sorted([3, 1, 2]))",
+    "expected": "[1, 2, 3]",
+    "pitfalls": "元のリストは変更されない。list.sort() と違い新しいリストを返す。数値と文字列の混在は TypeError。",
+    "related": [
+      "list",
+      "min",
+      "max",
+      "list.sort"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "type",
+    "name": "type()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "入門",
+    "summary": "オブジェクトの型を返す関数。",
+    "syntax": "type(obj)",
+    "args": "obj: 調べたいオブジェクト",
+    "returns": "type オブジェクト",
+    "example": "print(type(3.5).__name__)",
+    "expected": "float",
+    "pitfalls": "型の判定には通常 isinstance() の方が適する（継承を考慮するため）。",
+    "related": [
+      "isinstance",
+      "int",
+      "str"
+    ],
+    "lesson": "variables-types"
+  },
+  {
+    "id": "int",
+    "name": "int()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "値を整数に変換する、または整数型を作る関数。",
+    "syntax": "int(x, base=10)",
+    "args": "x: 変換元の値、base: 文字列を解釈する基数",
+    "returns": "int: 整数値",
+    "example": "print(int(\"42\") + 1)",
+    "expected": "43",
+    "pitfalls": "int(\"3.5\") は ValueError（文字列の小数表記は直接変換できない。float を経由する）。小数 float を int にすると小数部は切り捨てられる。",
+    "related": [
+      "str",
+      "type",
+      "input"
+    ],
+    "lesson": "variables-types"
+  },
+  {
+    "id": "str",
+    "name": "str()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "値を文字列に変換する関数。",
+    "syntax": "str(obj)",
+    "args": "obj: 変換元の値",
+    "returns": "str: 文字列",
+    "example": "print(str(100) + \"円\")",
+    "expected": "100円",
+    "pitfalls": "数値のまま文字列と + でつなぐことはできないため変換が必要。",
+    "related": [
+      "int",
+      "print",
+      "type"
+    ],
+    "lesson": "strings"
+  },
+  {
+    "id": "list",
+    "name": "list()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "リストを作る、またはイテラブルをリストに変換する関数。",
+    "syntax": "list(iterable)",
+    "args": "iterable: 変換元のイテラブル（省略可）",
+    "returns": "list: 新しいリスト",
+    "example": "print(list(\"abc\"))",
+    "expected": "['a', 'b', 'c']",
+    "pitfalls": "文字列を渡すと1文字ずつのリストになる。list(123) は TypeError。",
+    "related": [
+      "tuple",
+      "set",
+      "range"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "dict",
+    "name": "dict()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "辞書を作る関数。",
+    "syntax": "dict(**kwargs) / dict(mapping)",
+    "args": "キーワード引数または対応付け",
+    "returns": "dict: 新しい辞書",
+    "example": "print(dict(a=1, b=2))",
+    "expected": "{'a': 1, 'b': 2}",
+    "pitfalls": "キーワード形式ではキーは有効な識別子でなければならない。キーにリストなどの変更可能な値は使えない。",
+    "related": [
+      "dict.get",
+      "dict.items",
+      "list"
+    ],
+    "lesson": "dict-set"
+  },
+  {
+    "id": "set",
+    "name": "set()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "重複のない要素の集合（セット）を作る関数。",
+    "syntax": "set(iterable)",
+    "args": "iterable: 変換元のイテラブル（省略可）",
+    "returns": "set: 新しい集合",
+    "example": "print(sorted(set([1, 2, 2, 3])))",
+    "expected": "[1, 2, 3]",
+    "pitfalls": "集合は順序を保持しないため、表示順は保証されない。重複除去に使えるが順序が必要なら工夫が必要。",
+    "related": [
+      "list",
+      "tuple",
+      "dict"
+    ],
+    "lesson": "dict-set"
+  },
+  {
+    "id": "tuple",
+    "name": "tuple()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "タプルを作る、またはイテラブルをタプルに変換する関数。",
+    "syntax": "tuple(iterable)",
+    "args": "iterable: 変換元のイテラブル（省略可）",
+    "returns": "tuple: 新しいタプル",
+    "example": "print(tuple([1, 2]))",
+    "expected": "(1, 2)",
+    "pitfalls": "タプルは作成後に要素を変更できない（イミュータブル）。要素1つだけのタプルは (1,) のようにカンマが必要。",
+    "related": [
+      "list",
+      "set"
+    ],
+    "lesson": "tuple-slice"
+  },
+  {
+    "id": "abs",
+    "name": "abs()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "入門",
+    "summary": "数値の絶対値を返す関数。",
+    "syntax": "abs(x)",
+    "args": "x: 数値",
+    "returns": "絶対値（引数と同じ型）",
+    "example": "print(abs(-5))",
+    "expected": "5",
+    "pitfalls": "文字列には使えない。",
+    "related": [
+      "round",
+      "max",
+      "min"
+    ],
+    "lesson": "operators"
+  },
+  {
+    "id": "round",
+    "name": "round()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "入門",
+    "summary": "数値を指定した桁数に丸める関数。",
+    "syntax": "round(number, ndigits=None)",
+    "args": "number: 対象の数値、ndigits: 小数点以下の桁数",
+    "returns": "丸めた数値（ndigits 省略時は int）",
+    "example": "print(round(3.14159, 2))",
+    "expected": "3.14",
+    "pitfalls": "銀行丸め（偶数丸め）のため round(2.5) は 2、round(0.5) は 0 になる。浮動小数点の表現誤差で期待と違う場合がある。",
+    "related": [
+      "abs",
+      "int"
+    ],
+    "lesson": "operators"
+  },
+  {
+    "id": "open",
+    "name": "open()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "ファイルを開き、読み書きに使うファイルオブジェクトを返す関数。",
+    "syntax": "open(file, mode='r', encoding=None)",
+    "args": "file: パス、mode: 'r' 読込／'w' 書込／'a' 追記、encoding: 文字コード",
+    "returns": "ファイルオブジェクト",
+    "example": "with open(\"memo.txt\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"hello\")\nwith open(\"memo.txt\", encoding=\"utf-8\") as f:\n    print(f.read())",
+    "expected": "hello",
+    "pitfalls": "encoding を省略すると環境依存になり文字化けの原因になる。with を使わないと閉じ忘れることがある。",
+    "related": [
+      "with",
+      "input"
+    ],
+    "lesson": "file-io"
+  },
+  {
+    "id": "input",
+    "name": "input()",
+    "category": "組み込み関数",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "キーボードから1行の入力を受け取り、文字列として返す関数。",
+    "syntax": "input(prompt='')",
+    "args": "prompt: 入力前に表示する文字列",
+    "returns": "str: 入力された文字列（改行は除く）",
+    "example": "name = input(\"名前: \")\nprint(f\"こんにちは、{name}さん\")",
+    "expected": "名前: こんにちは、タロウさん",
+    "pitfalls": "戻り値は常に文字列。数値として使うには int() や float() で変換する。ブラウザ環境では標準の入力欄がないためアプリ側の入力UIが必要になる場合がある。",
+    "related": [
+      "int",
+      "str",
+      "print"
+    ],
+    "lesson": "variables-types"
+  },
+  {
+    "id": "isinstance",
+    "name": "isinstance()",
+    "category": "組み込み関数",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "オブジェクトが指定した型（またはそのサブクラス）のインスタンスか判定する関数。",
+    "syntax": "isinstance(obj, classinfo)",
+    "args": "obj: 調べたいオブジェクト、classinfo: 型または型のタプル",
+    "returns": "bool: True / False",
+    "example": "print(isinstance(10, int))",
+    "expected": "True",
+    "pitfalls": "bool は int のサブクラスなので isinstance(True, int) は True になる。",
+    "related": [
+      "type",
+      "int"
+    ],
+    "lesson": "variables-types"
+  },
+  {
+    "id": "map",
+    "name": "map()",
+    "category": "組み込み関数",
+    "importance": "応用",
+    "level": "中級",
+    "summary": "イテラブルの各要素に関数を適用した結果を返す関数。",
+    "syntax": "map(function, iterable)",
+    "args": "function: 適用する関数、iterable: 対象",
+    "returns": "map オブジェクト（イテレータ）",
+    "example": "print(list(map(str, [1, 2, 3])))",
+    "expected": "['1', '2', '3']",
+    "pitfalls": "結果はイテレータなので一覧表示には list() が必要。一度読み切ると再利用できない。",
+    "related": [
+      "filter",
+      "list",
+      "for"
+    ],
+    "lesson": "comprehensions"
+  },
+  {
+    "id": "filter",
+    "name": "filter()",
+    "category": "組み込み関数",
+    "importance": "応用",
+    "level": "中級",
+    "summary": "関数が真を返す要素だけを取り出す関数。",
+    "syntax": "filter(function, iterable)",
+    "args": "function: 判定する関数（None で真値判定）、iterable: 対象",
+    "returns": "filter オブジェクト（イテレータ）",
+    "example": "print(list(filter(lambda x: x % 2 == 0, range(6))))",
+    "expected": "[0, 2, 4]",
+    "pitfalls": "結果はイテレータなので list() 等で変換するまで中身が見えない。内包表記の方が読みやすい場面も多い。",
+    "related": [
+      "map",
+      "list",
+      "for"
+    ],
+    "lesson": "comprehensions"
+  },
+  {
+    "id": "str.split",
+    "name": "str.split()",
+    "category": "文字列メソッド",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "文字列を指定した区切りで分割し、リストを返すメソッド。",
+    "syntax": "str.split(sep=None, maxsplit=-1)",
+    "args": "sep: 区切り文字列（省略時は空白類）、maxsplit: 最大分割数",
+    "returns": "list: 分割された文字列のリスト",
+    "example": "print(\"a,b,c\".split(\",\"))",
+    "expected": "['a', 'b', 'c']",
+    "pitfalls": "sep を省略すると連続する空白は1つとして扱われ空文字列は出ないが、sep を指定すると空文字列が残る。",
+    "related": [
+      "str.join",
+      "str",
+      "list"
+    ],
+    "lesson": "strings"
+  },
+  {
+    "id": "str.join",
+    "name": "str.join()",
+    "category": "文字列メソッド",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "文字列のイテラブルを、呼び出した文字列を区切りにして連結するメソッド。",
+    "syntax": "str.join(iterable)",
+    "args": "iterable: 文字列のイテラブル",
+    "returns": "str: 連結した文字列",
+    "example": "print(\"-\".join([\"2024\", \"01\", \"15\"]))",
+    "expected": "2024-01-15",
+    "pitfalls": "要素が文字列でないと TypeError（先に str() で変換する）。sum() での文字列連結より高速で推奨される。",
+    "related": [
+      "str.split",
+      "str",
+      "sum"
+    ],
+    "lesson": "strings"
+  },
+  {
+    "id": "str.format",
+    "name": "str.format()",
+    "category": "文字列メソッド",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "波括弧 {} の位置に値を差し込んで文字列を作るメソッド。",
+    "syntax": "str.format(*args, **kwargs)",
+    "args": "位置引数・キーワード引数: 差し込む値",
+    "returns": "str: 整形済み文字列",
+    "example": "print(\"{} + {} = {}\".format(2, 3, 5))",
+    "expected": "2 + 3 = 5",
+    "pitfalls": "現在は f文字列（f\"{x}\"）の方が簡潔な場面が多い。{} の数と引数の数が合わないと IndexError。",
+    "related": [
+      "str",
+      "print"
+    ],
+    "lesson": "strings"
+  },
+  {
+    "id": "list.append",
+    "name": "list.append()",
+    "category": "リストメソッド",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "リストの末尾に要素を1つ追加するメソッド（リスト自体を変更する）。",
+    "syntax": "list.append(x)",
+    "args": "x: 追加する要素",
+    "returns": "None（リスト自体が変更される）",
+    "example": "nums = []\nnums.append(1)\nnums.append(2)\nprint(nums)",
+    "expected": "[1, 2]",
+    "pitfalls": "戻り値は None なので nums = nums.append(1) と書くと nums が None になる。リストを丸ごと追加したい場合は extend() を使う。",
+    "related": [
+      "list",
+      "list.sort"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "list.sort",
+    "name": "list.sort()",
+    "category": "リストメソッド",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "リスト自体を並べ替えるメソッド。",
+    "syntax": "list.sort(key=None, reverse=False)",
+    "args": "key: 並べ替え基準、reverse: True で降順",
+    "returns": "None（リスト自体が変更される）",
+    "example": "nums = [3, 1, 2]\nnums.sort()\nprint(nums)",
+    "expected": "[1, 2, 3]",
+    "pitfalls": "戻り値は None。新しいリストが欲しい場合は sorted() を使う。",
+    "related": [
+      "sorted",
+      "list.append",
+      "list"
+    ],
+    "lesson": "lists"
+  },
+  {
+    "id": "dict.get",
+    "name": "dict.get()",
+    "category": "辞書メソッド",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "キーの値を取得し、キーが無ければ既定値を返すメソッド。",
+    "syntax": "dict.get(key, default=None)",
+    "args": "key: キー、default: キーが無い場合の戻り値",
+    "returns": "値または default",
+    "example": "d = {\"a\": 1}\nprint(d.get(\"b\", \"なし\"))",
+    "expected": "なし",
+    "pitfalls": "d[\"b\"] のように直接参照すると無いキーで KeyError になる。存在確認と取得を分けずに済む。",
+    "related": [
+      "dict",
+      "dict.items"
+    ],
+    "lesson": "dict-set"
+  },
+  {
+    "id": "dict.items",
+    "name": "dict.items()",
+    "category": "辞書メソッド",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "辞書の (キー, 値) ペアの一覧ビューを返すメソッド。",
+    "syntax": "dict.items()",
+    "args": "引数なし",
+    "returns": "dict_items ビュー",
+    "example": "d = {\"a\": 1, \"b\": 2}\nprint(list(d.items()))",
+    "expected": "[('a', 1), ('b', 2)]",
+    "pitfalls": "ビューは辞書の変更を反映する。キーだけなら keys()、値だけなら values() を使う。",
+    "related": [
+      "dict.get",
+      "dict",
+      "for"
+    ],
+    "lesson": "dict-set"
+  },
+  {
+    "id": "for",
+    "name": "for文",
+    "category": "構文",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "イテラブルの要素を1つずつ取り出して処理を繰り返す構文。",
+    "syntax": "for 変数 in イテラブル:\n    処理",
+    "args": "—",
+    "returns": "—（構文のため戻り値なし）",
+    "example": "total = 0\nfor n in [1, 2, 3]:\n    total += n\nprint(total)",
+    "expected": "6",
+    "pitfalls": "文末のコロンとインデントが必須。ループ変数は最後の値がループ後も残る。",
+    "related": [
+      "range",
+      "enumerate",
+      "while"
+    ],
+    "lesson": "loops"
+  },
+  {
+    "id": "if",
+    "name": "if文",
+    "category": "構文",
+    "importance": "最重要",
+    "level": "入門",
+    "summary": "条件に応じて処理を分岐させる構文。",
+    "syntax": "if 条件:\n    処理\nelif 条件:\n    処理\nelse:\n    処理",
+    "args": "—",
+    "returns": "—（構文のため戻り値なし）",
+    "example": "age = 18\nif age >= 18:\n    print(\"成人\")\nelse:\n    print(\"未成年\")",
+    "expected": "成人",
+    "pitfalls": "比較は == を使い、代入の = と混同しない。elif は複数書ける。",
+    "related": [
+      "while",
+      "for"
+    ],
+    "lesson": "conditionals"
+  },
+  {
+    "id": "while",
+    "name": "while文",
+    "category": "構文",
+    "importance": "重要",
+    "level": "入門",
+    "summary": "条件が真の間、処理を繰り返す構文。",
+    "syntax": "while 条件:\n    処理",
+    "args": "—",
+    "returns": "—（構文のため戻り値なし）",
+    "example": "n = 3\nwhile n > 0:\n    print(n)\n    n -= 1",
+    "expected": "3\n2\n1",
+    "pitfalls": "条件がずっと真だと無限ループになる。カウンタの更新忘れが典型的な原因。",
+    "related": [
+      "for",
+      "if"
+    ],
+    "lesson": "loops"
+  },
+  {
+    "id": "with",
+    "name": "with文",
+    "category": "構文",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "リソースの後始末（ファイルのクローズ等）を自動化する構文。",
+    "syntax": "with 式 as 変数:\n    処理",
+    "args": "—",
+    "returns": "—（構文のため戻り値なし）",
+    "example": "with open(\"note.txt\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"ok\")\nprint(\"closed:\", f.closed)",
+    "expected": "closed: True",
+    "pitfalls": "ブロックを抜けると例外時でも __exit__ が呼ばれ後始末される。対象はコンテキストマネージャ対応オブジェクトに限る。",
+    "related": [
+      "open",
+      "try"
+    ],
+    "lesson": "context-manager"
+  },
+  {
+    "id": "try",
+    "name": "try文（例外処理）",
+    "category": "構文",
+    "importance": "最重要",
+    "level": "基礎",
+    "summary": "例外（エラー）が起きても処理を継続できるようにする構文。",
+    "syntax": "try:\n    処理\nexcept 例外型 as e:\n    例外時の処理",
+    "args": "—",
+    "returns": "—（構文のため戻り値なし）",
+    "example": "try:\n    x = int(\"abc\")\nexcept ValueError:\n    print(\"変換できません\")",
+    "expected": "変換できません",
+    "pitfalls": "except を裸で使うとあらゆる例外を隠してしまい不具合の発見が遅れる。例外型を具体的に指定する。",
+    "related": [
+      "with",
+      "if"
+    ],
+    "lesson": "exceptions"
+  },
+  {
+    "id": "math",
+    "name": "mathモジュール",
+    "category": "標準ライブラリ",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "平方根・三角関数など数学関数を提供する標準ライブラリ。",
+    "syntax": "import math",
+    "args": "—",
+    "returns": "モジュール",
+    "example": "import math\nprint(math.sqrt(81))",
+    "expected": "9.0",
+    "pitfalls": "sqrt の戻り値は float。複素数が必要なら cmath を使う。",
+    "related": [
+      "random",
+      "abs",
+      "round"
+    ],
+    "lesson": "stdlib"
+  },
+  {
+    "id": "random",
+    "name": "randomモジュール",
+    "category": "標準ライブラリ",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "乱数やランダムな選択を提供する標準ライブラリ。",
+    "syntax": "import random",
+    "args": "—",
+    "returns": "モジュール",
+    "example": "import random\nrandom.seed(0)\nprint(random.choice([\"a\", \"b\", \"c\"]))",
+    "expected": "b",
+    "pitfalls": "再現性が必要な実験では seed() を固定する。セキュリティ用途（パスワード等）には使わず secrets モジュールを使う。",
+    "related": [
+      "math",
+      "list"
+    ],
+    "lesson": "stdlib"
+  },
+  {
+    "id": "json",
+    "name": "jsonモジュール",
+    "category": "標準ライブラリ",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "PythonオブジェクトとJSON文字列を相互変換する標準ライブラリ。",
+    "syntax": "import json",
+    "args": "—",
+    "returns": "モジュール",
+    "example": "import json\nprint(json.dumps({\"name\": \"タロウ\", \"age\": 20}, ensure_ascii=False))",
+    "expected": "{\"name\": \"タロウ\", \"age\": 20}",
+    "pitfalls": "dumps は文字列化、dump はファイル出力。タプルはJSONでは配列になる。日付型はそのままでは変換できない。",
+    "related": [
+      "dict",
+      "open",
+      "str"
+    ],
+    "lesson": "stdlib"
+  },
+  {
+    "id": "os",
+    "name": "osモジュール",
+    "category": "標準ライブラリ",
+    "importance": "重要",
+    "level": "中級",
+    "summary": "OS機能（パス操作・環境変数等）への橋渡しをする標準ライブラリ。",
+    "syntax": "import os",
+    "args": "—",
+    "returns": "モジュール",
+    "example": "import os\nprint(os.path.join(\"data\", \"result.csv\"))",
+    "expected": "data/result.csv",
+    "pitfalls": "ブラウザ版Python（Pyodide）では実際のOS機能の多くが使えず、パス区切りも環境に依存する。パスの結合は文字列連結ではなく os.path.join / pathlib を使う。",
+    "related": [
+      "open",
+      "json"
+    ],
+    "lesson": "stdlib"
+  },
+  {
+    "id": "datetime",
+    "name": "datetimeモジュール",
+    "category": "標準ライブラリ",
+    "importance": "重要",
+    "level": "基礎",
+    "summary": "日付と時刻を扱う標準ライブラリ。",
+    "syntax": "import datetime",
+    "args": "—",
+    "returns": "モジュール",
+    "example": "import datetime\nd = datetime.date(2024, 2, 29)\nprint(d.strftime(\"%Y-%m-%d\"))",
+    "expected": "2024-02-29",
+    "pitfalls": "2024年はうるう年のため2月29日が存在する。年・月・日の順序や書式コード（%Y等）を間違えやすい。タイムゾーンが必要なら datetime.timezone を使う。",
+    "related": [
+      "str.format",
+      "int"
+    ],
+    "lesson": "stdlib"
+  },
+  {
+    "id": "numpy.array",
+    "name": "numpy.array()",
+    "category": "NumPy/pandas",
+    "importance": "重要",
+    "level": "応用",
+    "summary": "リスト等からNumPy配列（ndarray）を作る関数。",
+    "syntax": "numpy.array(object, dtype=None)",
+    "args": "object: リスト等、dtype: 要素の型",
+    "returns": "ndarray",
+    "example": "import numpy as np\na = np.array([1, 2, 3])\nprint(a.sum())",
+    "expected": "6",
+    "pitfalls": "通常のリストと違い、配列同士の演算は要素ごとに行われる。環境によっては NumPy が未導入の場合がある（ブラウザではPyodide同梱版を利用）。",
+    "related": [
+      "pandas.DataFrame",
+      "list",
+      "sum"
+    ],
+    "lesson": "numpy-pandas"
+  },
+  {
+    "id": "pandas.DataFrame",
+    "name": "pandas.DataFrame",
+    "category": "NumPy/pandas",
+    "importance": "重要",
+    "level": "応用",
+    "summary": "表形式データ（行と列）を扱うpandasの中心的なデータ構造。",
+    "syntax": "pandas.DataFrame(data)",
+    "args": "data: 辞書・リスト等（列名をキーにした辞書が典型）",
+    "returns": "DataFrame",
+    "example": "import pandas as pd\ndf = pd.DataFrame({\"x\": [1, 2], \"y\": [10, 20]})\nprint(df[\"y\"].sum())",
+    "expected": "30",
+    "pitfalls": "列名の綴りミスで KeyError になる。ブラウザではPyodide同梱のpandasを利用するが、バージョンは環境により異なる。",
+    "related": [
+      "numpy.array",
+      "dict",
+      "list"
+    ],
+    "lesson": "numpy-pandas"
+  }
+];
