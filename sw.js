@@ -1,6 +1,6 @@
 /* Service Worker: cache the app shell + learning data for offline use.
    Pyodide/Monaco CDN assets are runtime-cached after first download. */
-const CACHE = 'python-studio-v3';
+const CACHE = 'python-studio-v4';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'worker.js', 'manifest.webmanifest', 'icon.svg',
   'data/lessons.js', 'data/quizzes.js', 'data/reference.js', 'data/glossary.js', 'data/extras.js'];
 self.addEventListener('install', e => {
@@ -11,6 +11,18 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  const isAppCode = url.origin === self.location.origin;
+  if (isAppCode) {
+    // network-first for the app itself: updates reach returning users immediately,
+    // cache is only the offline fallback (a cache-first trap kept stale UI alive after deploys).
+    e.respondWith(fetch(e.request).then(res => {
+      const copy = res.clone();
+      if (res.ok) caches.open(CACHE).then(c => c.put(e.request, copy));
+      return res;
+    }).catch(() => caches.match(e.request, { ignoreSearch: true })));
+    return;
+  }
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(res => {
     const copy = res.clone();
     if (res.ok) caches.open(CACHE).then(c => c.put(e.request, copy));
