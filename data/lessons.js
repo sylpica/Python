@@ -406,5 +406,149 @@ export const LESSONS = [
    "list",
    "print"
   ]
+ },
+ {
+  "id": "string-methods",
+  "title": "文字列メソッド詳解",
+  "level": "基礎",
+  "category": "文字列",
+  "goal": "split/join/replace/stripなど日常的に使う文字列メソッドを使い分けられる",
+  "body": "文字列は不変（イミュータブル）で、メソッドは元の文字列を変更せず新しい文字列を返します。stripは前後の空白を取り除き、splitは区切り文字で分割してリストを返し、joinはその逆でリストを1つの文字列に連結します。replaceは部分文字列を置換します。入力データの整形では「stripしてからsplitする」のが定番の流れです。メソッドチェーンでつなげて書けるのも特徴で、読みやすさのために適度に分割することも大切です。",
+  "code": "text = \"  apple,banana,orange  \"\nparts = text.strip().split(\",\")\nprint(parts)\nprint(\"-\".join(parts))\nprint(\"banana\".replace(\"a\", \"o\"))",
+  "expected": "['apple', 'banana', 'orange']\napple-banana-orange\nbonono",
+  "pitfalls": "メソッドの結果を受け取らず、元の文字列が変わったと思い込むミスが多いです。必ず代入するか、その場で使ってください。",
+  "terms": [
+   "string",
+   "immutable"
+  ],
+  "refs": [
+   "str.split",
+   "str.join"
+  ]
+ },
+ {
+  "id": "list-operations",
+  "title": "リスト操作詳解",
+  "level": "基礎",
+  "category": "リスト",
+  "goal": "append/extend/sort/sorted/copyの違いを正確に使い分けられる",
+  "body": "appendは要素を1つ追加し、extendは別のリストの要素をまとめて追加します。sortは元のリスト自体を並べ替えてNoneを返し、sortedは新しいリストを返して元を変えません。この違いは実務で頻出のバグの元です。copyは浅いコピーを作り、単純な代入では同じリストを指すだけ（エイリアス）になる点も重要です。安全に扱うなら、元のデータを壊したくない場面ではsortedとcopyを使うのが基本です。",
+  "code": "nums = [3, 1, 2]\nnums.append(4)\nnums.extend([5, 6])\nprint(nums)\nprint(sorted(nums, reverse=True))\ncopied = nums.copy()\ncopied.append(99)\nprint(len(nums), len(copied))",
+  "expected": "[3, 1, 2, 4, 5, 6]\n[6, 5, 4, 3, 2, 1]\n6 7",
+  "pitfalls": "sort()の戻り値を代入してリストをNoneにしてしまうミスが代表的です。並べ替えた結果が欲しいならsortedを使ってください。",
+  "terms": [
+   "list",
+   "mutable"
+  ],
+  "refs": [
+   "list.append",
+   "list.sort",
+   "sorted"
+  ]
+ },
+ {
+  "id": "dict-operations",
+  "title": "辞書操作詳解",
+  "level": "基礎",
+  "category": "辞書",
+  "goal": "get/setdefault/itemsで安全に辞書を読み書きできる",
+  "body": "辞書はキーで値を引く構造で、存在しないキーを直接参照するとKeyErrorになります。getはキーが無いときに既定値を返して安全に読め、setdefaultは無ければ追加してから値を返します。items()でキーと値を同時に回すのが基本形です。辞書は挿入順を保つため、ループ出力の順序も予測できます。設定値や集計結果の保持など、実務で最も使うデータ構造の1つです。",
+  "code": "user = {\"name\": \"Taro\", \"age\": 20}\nuser[\"age\"] = 21\nuser.setdefault(\"city\", \"Tokyo\")\nprint(user.get(\"email\", \"未登録\"))\nfor k, v in user.items():\n    print(k, v)",
+  "expected": "未登録\nname Taro\nage 21\ncity Tokyo",
+  "pitfalls": "キーの存在を確認せずに d[key] と書いてKeyErrorになるケースが多発します。無い可能性があるキーはgetで読んでください。",
+  "terms": [
+   "dict"
+  ],
+  "refs": [
+   "dict.get",
+   "dict.items"
+  ]
+ },
+ {
+  "id": "function-arguments",
+  "title": "関数の引数詳解",
+  "level": "中級",
+  "category": "関数",
+  "goal": "デフォルト引数・キーワード引数・*args/**kwargsを使い分けられる",
+  "body": "引数には位置で渡す方法と、名前を指定するキーワード引数があります。デフォルト値を用意すると呼び出し側は省略でき、APIが使いやすくなります。*argsは任意個数の位置引数をタプルとして受け取り、**kwargsはキーワード引数を辞書として受け取ります。柔軟な反面、受け取る側の仕様が見えにくくなるため、乱用せず本当に可変な場合だけ使うのが実務の作法です。",
+  "code": "def greet(name, msg=\"こんにちは\"):\n    return f\"{msg}、{name}さん\"\nprint(greet(\"花子\"))\nprint(greet(\"花子\", msg=\"やあ\"))\ndef total(*args, **kwargs):\n    return sum(args) + sum(kwargs.values())\nprint(total(1, 2, bonus=10))",
+  "expected": "こんにちは、花子さん\nやあ、花子さん\n13",
+  "pitfalls": "デフォルト引数にリストや辞書を使うと呼び出し間で共有されてしまいます。Noneを既定にして関数内で作るのが定石です。",
+  "terms": [
+   "function",
+   "argument"
+  ],
+  "refs": [
+   "print"
+  ]
+ },
+ {
+  "id": "exceptions-advanced",
+  "title": "例外処理の作法",
+  "level": "中級",
+  "category": "例外処理",
+  "goal": "try/except/else/finallyの役割とraiseの考え方を理解する",
+  "body": "tryブロックで例外が起きなければelseが実行され、例外の有無にかかわらずfinallyは必ず実行されます。この分担で「成功時の処理」と「後片付け」を分けて書けます。例外を握りつぶして無言で続行するのは最悪の作法で、原因不明の不具合を生みます。自分で例外を起こすraiseは、呼び出し側に異常を知らせる正式な手段です。ライブラリでは例外で知らせ、アプリケーションの入口で捕まえるのが基本設計です。",
+  "code": "def divide(a, b):\n    try:\n        result = a / b\n    except ZeroDivisionError:\n        print(\"0では割れません\")\n        return None\n    else:\n        print(\"計算成功\")\n        return result\n    finally:\n        print(\"処理終了\")\nprint(divide(10, 2))",
+  "expected": "計算成功\n処理終了\n5.0",
+  "pitfalls": "except: と素で書いて全ての例外を握りつぶすと、タイプミスなどの本当のバグまで隠れてしまいます。捕まえる例外は具体的に書きましょう。",
+  "terms": [
+   "exception"
+  ],
+  "refs": [
+   "try"
+  ]
+ },
+ {
+  "id": "csv-files",
+  "title": "CSVファイルの読み書き",
+  "level": "応用",
+  "category": "ファイル",
+  "goal": "csvモジュールで表データを辞書として読み、集計できる",
+  "body": "CSVはカンマ区切りの表データ形式で、業務データの受け渡しに広く使われます。csvモジュールのDictReaderは1行目をヘッダとして、各行を辞書で返してくれるため、列名で安全にアクセスできます。読み取った値は全て文字列なので、数値として使うにはintやfloatへの変換が必要です。ファイルを開くときは with を使い、文字コード（encoding）を明示するのが実務の基本です。",
+  "code": "import csv, io\ndata = \"name,score\\nTaro,80\\nHana,95\\n\"\nrows = list(csv.DictReader(io.StringIO(data)))\nprint(rows[1][\"name\"], rows[1][\"score\"])\nprint(sum(int(r[\"score\"]) for r in rows))",
+  "expected": "Hana 95\n175",
+  "pitfalls": "CSVの値は文字列のままなので、そのまま計算するとTypeErrorになります。数値列は必ず変換してください。",
+  "terms": [
+   "module"
+  ],
+  "refs": [
+   "open"
+  ]
+ },
+ {
+  "id": "sets-operations",
+  "title": "集合演算",
+  "level": "基礎",
+  "category": "辞書と集合",
+  "goal": "集合の積・和・差と、重複除去への応用を使える",
+  "body": "集合（set）は重複を持たない集まりで、積集合（&）・和集合（|）・差集合（-）の演算が直接書けます。「両方に含まれるもの」「片方だけにあるもの」といった抽出が、ループを書かずに表現できるのが強みです。また、リストをsetに変換すると重複が除去できるため、重複除去の定番手段でもあります。ただし集合は順序を保たないため、順序が要る場合はsortedと組み合わせます。",
+  "code": "a = {1, 2, 3, 4}\nb = {3, 4, 5}\nprint(sorted(a & b))\nprint(sorted(a | b))\nprint(sorted(a - b))\nprint(len(set([1, 1, 2, 3, 3])))",
+  "expected": "[3, 4]\n[1, 2, 3, 4, 5]\n[1, 2]\n3",
+  "pitfalls": "集合は順序を持たないため、そのまま表示すると並びが不定です。表示や比較ではsortedでリスト化してください。",
+  "terms": [
+   "set"
+  ],
+  "refs": [
+   "set"
+  ]
+ },
+ {
+  "id": "sorting-key",
+  "title": "並べ替えのkey",
+  "level": "中級",
+  "category": "リスト",
+  "goal": "sortedのkeyで「何を基準に並べるか」を指定できる",
+  "body": "sortedやsortのkey引数に「各要素から比較用の値を取り出す関数」を渡すと、その値で並べ替えられます。文字列の長さ順、タプルの2番目の要素順、辞書の特定キー順など、実務の並べ替えのほとんどはkeyで表現できます。lambdaはその場だけ使う小さな関数を作る記法で、keyとの組み合わせが定番です。複数条件で並べたい場合は、keyにタプルを返させると優先順に効きます。",
+  "code": "words = [\"banana\", \"kiwi\", \"apple\", \"fig\"]\nprint(sorted(words, key=len))\npeople = [(\"Taro\", 30), (\"Hana\", 25)]\nprint(sorted(people, key=lambda p: p[1]))",
+  "expected": "['fig', 'kiwi', 'apple', 'banana']\n[('Hana', 25), ('Taro', 30)]",
+  "pitfalls": "keyは「比較そのもの」ではなく「値を取り出す関数」を渡す場所です。2引数を取る比較関数を渡すとエラーになります。",
+  "terms": [
+   "function"
+  ],
+  "refs": [
+   "sorted",
+   "list.sort"
+  ]
  }
 ];

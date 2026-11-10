@@ -208,22 +208,44 @@ $('#fileUpload').addEventListener('change', async e => {
   saveFiles(); renderTabs(); switchFile(e.target.files[0].name);
 });
 $('#fontSize').addEventListener('change', e => { if (editor) editor.updateOptions({ fontSize: Number(e.target.value) }); });
+/* ----- side panel: reference & glossary always visible ----- */
+let sideTab = 'ref';
+function renderSideList(){
+  const q = ($('#sideSearch').value || '').toLowerCase();
+  $('#sideTabRef').classList.toggle('active', sideTab === 'ref');
+  $('#sideTabGloss').classList.toggle('active', sideTab === 'gloss');
+  if (sideTab === 'ref') {
+    const list = REFERENCE.filter(r => !q || (r.name + r.summary + r.category + r.id).toLowerCase().includes(q))
+      .sort((a, b) => (IMP[a.importance] - IMP[b.importance]) || a.name.localeCompare(b.name));
+    $('#sideList').innerHTML = list.map(r => `<div class="side-item" onclick="__sideRef('${r.id}')"><span>${esc(r.name)}</span><span class="meta">${esc(r.importance)}・${esc(r.category)}</span></div>`).join('') || '<div class="side-item">該当なし</div>';
+  } else {
+    const list = GLOSSARY.filter(g => !q || (g.ja + g.en + g.def).toLowerCase().includes(q))
+      .sort((a, b) => (IMP[a.importance] - IMP[b.importance]) || a.ja.localeCompare(b.ja));
+    $('#sideList').innerHTML = list.map(g => `<div class="side-item" onclick="__sideTerm('${g.id}')"><span>${esc(g.ja)}</span><span class="meta">${esc(g.importance)}・${esc(g.en)}</span></div>`).join('') || '<div class="side-item">該当なし</div>';
+  }
+}
+$('#sideTabRef').addEventListener('click', () => { sideTab = 'ref'; renderSideList(); });
+$('#sideTabGloss').addEventListener('click', () => { sideTab = 'gloss'; renderSideList(); });
+$('#sideSearch').addEventListener('input', renderSideList);
+window.__sideRef = id => { const r = refById[id]; if (r) { sideTab = 'ref'; renderSideList(); showSideRef(r); } };
+window.__sideTerm = id => { const g = termById[id]; if (g) { sideTab = 'gloss'; renderSideList(); showSideTerm(g); } };
+
 function lookupWordAtCursor(){
   let word = '';
   if (editor) { const pos = editor.getPosition(); const w = editor.getModel().getWordAtPosition(pos); word = w ? w.word : ''; }
   else { const ta = $('#editorFallback'); const s = ta.selectionStart; const m = ta.value.slice(0, s).match(/[\w.]+$/); word = m ? m[0] : ''; }
-  if (!word) { $('#sideRef').textContent = '単語の上にカーソルを置いてください。'; return; }
+  if (!word) { $('#sideDetail').textContent = '単語の上にカーソルを置いてください。'; return; }
   const cand = [word, word.split('.').pop()];
   for (const c of cand) {
     const r = REFERENCE.find(x => x.id === c || x.name.replace(/\(\)$/,'') === c || x.id.endsWith('.' + c));
-    if (r) return showSideRef(r);
+    if (r) { sideTab = 'ref'; renderSideList(); return showSideRef(r); }
     const g = GLOSSARY.find(x => x.en === c || x.id === c);
-    if (g) return showSideTerm(g);
+    if (g) { sideTab = 'gloss'; renderSideList(); return showSideTerm(g); }
   }
-  $('#sideRef').innerHTML = `「${esc(word)}」のリファレンス項目は見つかりませんでした。全体検索も試してください。`;
+  $('#sideDetail').innerHTML = `「${esc(word)}」のリファレンス項目は見つかりませんでした。全体検索も試してください。`;
 }
 function showSideRef(r){
-  $('#sideRef').innerHTML = `<h3 style="margin:2px 0">${esc(r.name)} <span class="badge">${esc(r.importance)}</span></h3>
+  $('#sideDetail').innerHTML = `<h3 style="margin:2px 0">${esc(r.name)} <span class="badge">${esc(r.importance)}</span></h3>
   <p>${esc(r.summary)}</p><pre>${esc(r.syntax)}</pre>
   <p class="kv">引数: ${esc(r.args)}／戻り値: ${esc(r.returns)}</p>
   <pre>${esc(r.example)}</pre><p class="kv">出力: ${esc(r.expected)}</p>
@@ -231,7 +253,7 @@ function showSideRef(r){
   <button class="chip" onclick="__goRef('${r.id}')">詳細を開く</button> ${r.lesson && lessonById[r.lesson] ? `<button class="chip" onclick="__goLesson('${r.lesson}')">関連レッスン</button>` : ''}`;
 }
 function showSideTerm(g){
-  $('#sideRef').innerHTML = `<h3 style="margin:2px 0">${esc(g.ja)}（${esc(g.en)}）</h3><p>${esc(g.def)}</p><p class="kv">${esc(g.easy)}</p>
+  $('#sideDetail').innerHTML = `<h3 style="margin:2px 0">${esc(g.ja)}（${esc(g.en)}）</h3><p>${esc(g.def)}</p><p class="kv">${esc(g.easy)}</p>
   <button class="chip" onclick="__goTerm('${g.id}')">用語詳細を開く</button>`;
 }
 $('#refWordBtn').addEventListener('click', lookupWordAtCursor);
@@ -303,33 +325,44 @@ $('#lessonDetail').addEventListener('click', async e => {
 
 /* ================= Quiz ================= */
 const FILLS = [
-  { q:'リストの長さを求めるコード: print(___(items))', options:['len','count','size','length'], answer:0, explain:'要素数は len() で求めます。count はメソッド名、size/length はPythonの組み込みではありません。' },
-  { q:'辞書でキーが無いときに None を返す: value = d.___("key")', options:['get','find','search','fetch'], answer:0, explain:'dict.get はキーが無ければ None（または指定した既定値）を返します。' },
-  { q:'0から4まで繰り返す: for i in ___(5):', options:['range','loop','count','seq'], answer:0, explain:'range(5) が 0,1,2,3,4 を生成します。' },
-  { q:'文字列を分割する: parts = text.___(",")', options:['split','cut','divide','parse'], answer:0, explain:'str.split は区切りで分割してリストを返します。' },
-  { q:'例外を捕まえる: ___ ValueError:', options:['except','catch','handle','error'], answer:0, explain:'Pythonの例外捕捉は except です。catch は他の言語の書き方です。' },
-  { q:'ファイルを開く: ___ open("a.txt") as f:', options:['with','using','open','as'], answer:0, explain:'with文で開くと自動で閉じられます。' },
+  { q:'リストの長さを求めるコード: print(___(items))', options:['len','count','size','length'], answer:0, lesson:'lists', explain:'要素数は len() で求めます。count はメソッド名、size/length はPythonの組み込みではありません。' },
+  { q:'辞書でキーが無いときに None を返す: value = d.___("key")', options:['get','find','search','fetch'], answer:0, lesson:'dict-operations', explain:'dict.get はキーが無ければ None（または指定した既定値）を返します。' },
+  { q:'0から4まで繰り返す: for i in ___(5):', options:['range','loop','count','seq'], answer:0, lesson:'loops', explain:'range(5) が 0,1,2,3,4 を生成します。' },
+  { q:'文字列を分割する: parts = text.___(",")', options:['split','cut','divide','parse'], answer:0, lesson:'string-methods', explain:'str.split は区切りで分割してリストを返します。' },
+  { q:'例外を捕まえる: ___ ValueError:', options:['except','catch','handle','error'], answer:0, lesson:'exceptions', explain:'Pythonの例外捕捉は except です。catch は他の言語の書き方です。' },
+  { q:'ファイルを開く: ___ open("a.txt") as f:', options:['with','using','open','as'], answer:0, lesson:'context-manager', explain:'with文で開くと自動で閉じられます。' },
 ];
 const CODING = [
-  { title:'合計と平均', desc:'リスト numbers の合計と平均を「合計: X」「平均: Y」の形式で表示してください', starter:'numbers = [10, 20, 30, 40]\n# ここにコードを書く\n', test:'assert True', expect:'合計: 100\n平均: 25.0', hint:'sum() と len() を使います' },
-  { title:'偶数だけ抽出', desc:'1から10までの偶数だけをリストにして表示してください', starter:'# 内包表記がおすすめです\n', test:'', expect:'[2, 4, 6, 8, 10]', hint:'[x for x in range(1, 11) if x % 2 == 0]' },
-  { title:'文字数カウント', desc:'文字列 "banana" の各文字の出現回数を辞書で表示してください', starter:'s = "banana"\ncounts = {}\n# ここにコードを書く\nprint(counts)\n', test:'', expect:"{'b': 1, 'a': 3, 'n': 2}", hint:'for文で1文字ずつ数え、.get() を使うと簡潔です' },
-  { title:'FizzBuzz（1〜15）', desc:'1から15まで、3の倍数はFizz、5の倍数はBuzz、両方はFizzBuzz、それ以外は数字を表示（1行に1つ）', starter:'', test:'', expect:'1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz', hint:'% 演算子で余りを見ます。両方の条件を先に判定します' },
+  { title:'合計と平均', desc:'リスト numbers の合計と平均を「合計: X」「平均: Y」の形式で表示してください', starter:'numbers = [10, 20, 30, 40]\n# ここにコードを書く\n', test:'assert True', expect:'合計: 100\n平均: 25.0', hint:'sum() と len() を使います', lesson:'lists' },
+  { title:'偶数だけ抽出', desc:'1から10までの偶数だけをリストにして表示してください', starter:'# 内包表記がおすすめです\n', test:'', expect:'[2, 4, 6, 8, 10]', hint:'[x for x in range(1, 11) if x % 2 == 0]', lesson:'comprehensions' },
+  { title:'文字数カウント', desc:'文字列 "banana" の各文字の出現回数を辞書で表示してください', starter:'s = "banana"\ncounts = {}\n# ここにコードを書く\nprint(counts)\n', test:'', expect:"{'b': 1, 'a': 3, 'n': 2}", hint:'for文で1文字ずつ数え、.get() を使うと簡潔です', lesson:'dict-operations' },
+  { title:'FizzBuzz（1〜15）', desc:'1から15まで、3の倍数はFizz、5の倍数はBuzz、両方はFizzBuzz、それ以外は数字を表示（1行に1つ）', starter:'', test:'', expect:'1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz', hint:'% 演算子で余りを見ます。両方の条件を先に判定します', lesson:'conditionals' },
 ];
 const BUGS = [
-  { title:'= と == の混同', bad:'x = 5\nif x = 5:\n    print("5です")\n', expect:'5です', hint:'比較には == を使います' },
-  { title:'コロンの付け忘れ', bad:'for i in range(3)\n    print(i)\n', expect:'0\n1\n2', hint:'for文の末尾に : が必要です' },
-  { title:'文字列と数値の混同', bad:'age = "20"\nprint(age + 5)\n', expect:'25', hint:'int() で数値に変換します' },
-  { title:'インデントミス', bad:'if True:\nprint("ok")\n', expect:'ok', hint:'if の中身は字下げします' },
+  { title:'= と == の混同', bad:'x = 5\nif x = 5:\n    print("5です")\n', expect:'5です', hint:'比較には == を使います', lesson:'conditionals' },
+  { title:'コロンの付け忘れ', bad:'for i in range(3)\n    print(i)\n', expect:'0\n1\n2', hint:'for文の末尾に : が必要です', lesson:'loops' },
+  { title:'文字列と数値の混同', bad:'age = "20"\nprint(age + 5)\n', expect:'25', hint:'int() で数値に変換します', lesson:'variables-types' },
+  { title:'インデントミス', bad:'if True:\nprint("ok")\n', expect:'ok', hint:'if の中身は字下げします', lesson:'conditionals' },
 ];
-let qmode = 'choice', quizQueue = [], quizIdx = 0, quizRight = 0;
+let qmode = 'choice', quizQueue = [], quizIdx = 0, quizRight = 0, optShuffle = store.get('optShuffle', true);
+function shuffled(arr){ const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function withShuffledOptions(z){
+  if (!optShuffle) return z;
+  const order = shuffled(z.options.map((_, i) => i));
+  return { ...z, options: order.map(i => z.options[i]), answer: order.indexOf(z.answer) };
+}
+function bmKey(z){ return qmode === 'choice' ? 'quiz:' + (z.id || z.question) : 'fill:' + z.q; }
+function bmButton(z){
+  const on = progress.bookmarks.includes(bmKey(z));
+  return `<button data-bm="1" title="ブックマーク">${on ? '★ ブックマーク中' : '☆ ブックマーク'}</button>`;
+}
 function recordQuiz(label, ok){ progress.history.push({ t: new Date().toISOString(), label, ok }); if (!ok && !progress.wrong.includes(label)) progress.wrong.push(label); if (ok) progress.wrong = progress.wrong.filter(x => x !== label); saveProgress(); }
 function startQuiz(){
   const area = $('#quizArea');
   if (qmode === 'choice') {
-    quizQueue = [...QUIZZES].sort(() => Math.random() - .5).slice(0, 10); quizIdx = 0; quizRight = 0; showChoice();
+    quizQueue = shuffled(QUIZZES).slice(0, 10).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice();
   } else if (qmode === 'fill') {
-    quizQueue = [...FILLS].sort(() => Math.random() - .5); quizIdx = 0; quizRight = 0; showFill();
+    quizQueue = shuffled(FILLS).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showFill();
   } else if (qmode === 'code') {
     area.innerHTML = CODING.map((c, i) => `<div class="item" onclick="__codeTask(${i})"><b>${esc(c.title)}</b><div class="meta">${esc(c.desc)}</div></div>`).join('') || '';
   } else {
@@ -339,55 +372,74 @@ function startQuiz(){
 function showChoice(){
   const z = quizQueue[quizIdx]; if (!z) { $('#quizArea').innerHTML = `<div class="explain">終了: ${quizRight} / ${quizQueue.length} 正解</div>`; return; }
   $('#quizScore').textContent = `${quizIdx + 1} / ${quizQueue.length}　正解 ${quizRight}`;
-  $('#quizArea').innerHTML = `<p><span class="badge">${esc(z.category)}</span><span class="badge">${esc(z.level)}</span></p><p><b>${esc(z.question)}</b></p>
+  $('#quizArea').innerHTML = `<p><span class="badge">${esc(z.category)}</span><span class="badge">${esc(z.level)}</span> ${bmButton(z)}</p><p><b>${esc(z.question)}</b></p>
   ${z.code ? `<pre class="code">${esc(z.code)}</pre>` : ''}
   ${z.options.map((o, i) => `<button class="opt" data-opt="${i}">${esc(o)}</button>`).join('')}<div id="qExplain"></div>`;
 }
 function showFill(){
   const z = quizQueue[quizIdx]; if (!z) { $('#quizArea').innerHTML = `<div class="explain">終了: ${quizRight} / ${quizQueue.length} 正解</div>`; return; }
   $('#quizScore').textContent = `${quizIdx + 1} / ${quizQueue.length}　正解 ${quizRight}`;
-  $('#quizArea').innerHTML = `<p><b>穴埋め</b></p><pre class="code">${esc(z.q)}</pre>
+  $('#quizArea').innerHTML = `<p><b>穴埋め</b> ${bmButton(z)}</p><pre class="code">${esc(z.q)}</pre>
   ${z.options.map((o, i) => `<button class="opt" data-opt="${i}">${esc(o)}</button>`).join('')}<div id="qExplain"></div>`;
 }
 $('#quizArea').addEventListener('click', async e => {
+  const bk = e.target.closest('[data-bmkey]');
+  if (bk) { const k = bk.dataset.bmkey; bookmark(k.split(':')[0], k.slice(k.indexOf(':') + 1)); bk.textContent = progress.bookmarks.includes(k) ? '★ ブックマーク中' : '☆ ブックマーク'; return; }
+  const bm = e.target.closest('[data-bm]');
+  if (bm) { const z = quizQueue[quizIdx]; bookmark(bmKey(z).split(':')[0], bmKey(z).slice(bmKey(z).indexOf(':') + 1)); bm.textContent = progress.bookmarks.includes(bmKey(z)) ? '★ ブックマーク中' : '☆ ブックマーク'; return; }
   const b = e.target.closest('[data-opt]'); if (!b) return;
   const z = quizQueue[quizIdx]; const pick = Number(b.dataset.opt); const ok = pick === z.answer;
   if (ok) quizRight++;
   recordQuiz((qmode === 'choice' ? z.id || z.question : z.q), ok);
   $$('#quizArea .opt').forEach((o, i) => { o.disabled = true; if (i === z.answer) o.classList.add('correct'); else if (i === pick) o.classList.add('wrong'); });
-  $('#qExplain').innerHTML = `<div class="explain">${ok ? '✅ 正解' : '❌ 不正解'}<br>${esc(z.explanation || z.explain)}</div><button class="primary" id="qNext">次の問題</button>`;
+  const lessonBtn = (!ok && z.lesson && lessonById[z.lesson]) ? `<button onclick="__goLesson('${z.lesson}')">📖 関連レッスン「${esc(lessonById[z.lesson].title)}」で復習</button> ` : '';
+  $('#qExplain').innerHTML = `<div class="explain">${ok ? '✅ 正解' : '❌ 不正解'}<br>${esc(z.explanation || z.explain)}</div>${lessonBtn}<button class="primary" id="qNext">次の問題</button>`;
   $('#qNext').addEventListener('click', () => { quizIdx++; qmode === 'choice' ? showChoice() : showFill(); });
   if (e.target.closest('[data-run-code]')) return;
 });
 window.__codeTask = i => {
   const c = CODING[i];
   $('#quizArea').innerHTML = `<h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p><p class="kv">ヒント: ${esc(c.hint)}</p>
+  <div class="toolbar"><button data-bmkey="code:${esc(c.title)}">${progress.bookmarks.includes('code:' + c.title) ? '★ ブックマーク中' : '☆ ブックマーク'}</button></div>
   <textarea id="codeAns" class="editor" style="height:180px">${esc(c.starter)}</textarea>
   <div class="toolbar"><button class="primary" id="codeRun">▶ 実行して判定</button></div><div id="codeOut"></div>`;
   $('#codeRun').addEventListener('click', async () => {
     const r = await runPython($('#codeAns').value, { stdin: '' });
     const ok = !r.error && r.stdout.replace(/\n$/, '') === c.expect;
     recordQuiz('code:' + c.title, ok);
-    $('#codeOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error || ''))}</pre><div class="explain">${ok ? '✅ テスト合格（期待出力と一致）' : '❌ 期待出力と異なります<br>期待: <pre>' + esc(c.expect) + '</pre>'}</div>`;
+    $('#codeOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error || ''))}</pre><div class="explain">${ok ? '✅ テスト合格（期待出力と一致）' : '❌ 期待出力と異なります<br>期待: <pre>' + esc(c.expect) + '</pre>' + (c.lesson && lessonById[c.lesson] ? `<button onclick="__goLesson('${c.lesson}')">📖 関連レッスン「${esc(lessonById[c.lesson].title)}」で復習</button>` : '')}</div>`;
   });
 };
 window.__bugTask = i => {
   const c = BUGS[i];
   $('#quizArea').innerHTML = `<h3>${esc(c.title)}</h3><p>下のコードにはバグがあります。直して実行してください。</p><p class="kv">ヒント: ${esc(c.hint)}</p>
+  <div class="toolbar"><button data-bmkey="bug:${esc(c.title)}">${progress.bookmarks.includes('bug:' + c.title) ? '★ ブックマーク中' : '☆ ブックマーク'}</button></div>
   <textarea id="bugAns" class="editor" style="height:140px">${esc(c.bad)}</textarea>
   <div class="toolbar"><button class="primary" id="bugRun">▶ 実行して判定</button><button id="bugGood">修正例を見る</button></div><div id="bugOut"></div>`;
   $('#bugRun').addEventListener('click', async () => {
     const code = $('#bugAns').value; const r = await runPython(code, { stdin: '' });
     const ok = !r.error && r.stdout.replace(/\n$/, '') === c.expect && code !== c.bad;
     recordQuiz('bug:' + c.title, ok);
-    $('#bugOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error || ''))}</pre><div class="explain">${ok ? '✅ 修正できました' : 'まだ直っていません。エラーメッセージとヒントを見てください'}</div>`;
+    $('#bugOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error || ''))}</pre><div class="explain">${ok ? '✅ 修正できました' : 'まだ直っていません。エラーメッセージとヒントを見てください<br>' + (c.lesson && lessonById[c.lesson] ? `<button onclick="__goLesson('${c.lesson}')">📖 関連レッスン「${esc(lessonById[c.lesson].title)}」で復習</button>` : '')}</div>`;
   });
   $('#bugGood').addEventListener('click', () => { const m = MISTAKES.find(x => x.title && c.title.includes(x.title.split(' ')[0])); $('#bugOut').innerHTML = m ? `<pre>${esc(m.good)}</pre><p>${esc(m.cause)}</p>` : '解説は「よくある間違い」を参照してください'; });
 };
 $$('.qmode').forEach(b => b.addEventListener('click', () => { qmode = b.dataset.qmode; $$('.qmode').forEach(x => x.classList.toggle('active', x === b)); startQuiz(); }));
+$('#shuffleBtn').addEventListener('click', () => startQuiz());
+$('#optShuffleBtn').addEventListener('click', () => {
+  optShuffle = !optShuffle; store.set('optShuffle', optShuffle);
+  $('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF');
+  if (qmode === 'choice' || qmode === 'fill') startQuiz();
+});
+$('#bookmarkQuizBtn').addEventListener('click', () => {
+  const marked = QUIZZES.filter(z => progress.bookmarks.includes('quiz:' + z.id));
+  if (!marked.length) { $('#quizArea').innerHTML = '<div class="explain">ブックマークした四択問題がまだありません。問題の ☆ から追加できます。</div>'; return; }
+  qmode = 'choice'; $$('.qmode').forEach(x => x.classList.toggle('active', x.dataset.qmode === 'choice'));
+  quizQueue = shuffled(marked).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice();
+});
 $('#reviewWrongBtn').addEventListener('click', () => {
   if (!progress.wrong.length) { $('#quizArea').innerHTML = '<div class="explain">復習対象はありません。</div>'; return; }
-  qmode = 'choice'; quizQueue = QUIZZES.filter(z => progress.wrong.includes(z.id)); if (!quizQueue.length) { $('#quizArea').innerHTML = '<div class="explain">四択の復習対象はありません（コーディング等は各モードから再挑戦できます）。</div>'; return; }
+  qmode = 'choice'; quizQueue = QUIZZES.filter(z => progress.wrong.includes(z.id)).map(withShuffledOptions); if (!quizQueue.length) { $('#quizArea').innerHTML = '<div class="explain">四択の復習対象はありません（コーディング等は各モードから再挑戦できます）。</div>'; return; }
   quizIdx = 0; quizRight = 0; showChoice();
 });
 
@@ -475,7 +527,11 @@ function renderProgress(){
     <div class="card"><h4>復習対象</h4><p>${progress.wrong.length} 件</p></div>
     <div class="card"><h4>収録コンテンツ</h4><p>レッスン ${LESSONS.length}／四択 ${QUIZZES.length}／リファレンス ${REFERENCE.length}／用語 ${GLOSSARY.length}／間違い ${MISTAKES.length}</p></div>`;
   $('#historyView').innerHTML = progress.history.slice(-30).reverse().map(h => `<div class="item">${h.ok ? '✅' : '❌'} ${esc(h.label)} <span class="meta">${esc(h.t.slice(0, 10))}</span></div>`).join('') || 'まだ履歴がありません';
-  $('#bookmarkView').innerHTML = progress.bookmarks.map(b => `<span class="chip">${esc(b)}</span>`).join('') || 'なし';
+  $('#bookmarkView').innerHTML = progress.bookmarks.map(b => {
+    let label = b;
+    if (b.startsWith('quiz:')) { const z = QUIZZES.find(x => x.id === b.slice(5)); if (z) label = '四択: ' + z.question.slice(0, 40); }
+    return `<span class="chip">${esc(label)}</span>`;
+  }).join('') || 'なし';
 }
 $('#exportBtn').addEventListener('click', () => {
   download('python-studio-backup.json', JSON.stringify({ version: 1, files, progress, notebook: nbCells }, null, 2), 'application/json');
@@ -492,5 +548,7 @@ $('#importData').addEventListener('change', async e => {
 $('#wipeBtn').addEventListener('click', () => { if (confirm('学習記録と作業ファイルを初期化しますか？')) { localStorage.clear(); location.reload(); } });
 
 /* ================= init ================= */
-renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); startQuiz(); initEditor();
+renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList();
+$('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF');
+startQuiz(); initEditor();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
