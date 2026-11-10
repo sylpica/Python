@@ -75,6 +75,7 @@ textarea.editor{height:330px;padding:8px}
 .explain{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px;line-height:1.6}
 .nb-cell{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0}
 .nb-cell textarea{width:100%;font-family:ui-monospace,monospace;min-height:80px}
+.nb-md{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px;margin-top:5px;line-height:1.6;white-space:normal}
 .nb-out{background:#0d1117;color:#d6e2ef;border-radius:6px;padding:7px;white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:13px;margin-top:5px}
 .nb-out:empty{display:none}
 .search-results{position:sticky;top:45px;z-index:15;background:var(--bg);border-bottom:1px solid var(--line);padding:6px 10px;max-height:45vh;overflow:auto}

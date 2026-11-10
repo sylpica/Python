@@ -30,16 +30,22 @@ function newWorker(){
   worker.onmessage = ev => {
     const m = ev.data;
     if (m.type === 'ready') { $('#kernelStatus').textContent = 'カーネル準備完了（Python ' + m.python + ' / Pyodide 0.26.4）'; runDiagnostics(); }
-    if (m.type === 'result' && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-    if (m.type === 'diag' && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+    if (m.id != null && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
     if (m.type === 'loaded') { $('#kernelStatus').textContent = 'パッケージ読込完了: ' + m.packages.join(', '); }
     if (m.type === 'reset-done') { $('#kernelStatus').textContent = 'カーネルをリセットしました'; }
   };
 }
 function callWorker(msg){ return new Promise(res => { const id = ++runSeq; pending.set(id, res); worker.postMessage({...msg, id}); }); }
-async function runPython(code, opts = {}){
-  const m = await callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin, packages: opts.packages });
-  return m;
+let runChain = Promise.resolve();
+function runPython(code, opts = {}){
+  // serialize all executions: concurrent runs would interleave stdout/kernel state
+  const p = runChain.then(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin, packages: opts.packages }));
+  runChain = p.then(() => {}, () => {});
+  return p;
+}
+function flushPending(reason){
+  for (const [, res] of pending) res({ type:'result', stdout:'', stderr:'', error: reason, ms:0, image:null, vars:[], syntax:null });
+  pending.clear();
 }
 newWorker();
 
@@ -108,6 +114,7 @@ function initEditor(){
 }
 let diagTimer = null;
 function onEdit(){
+  if (typeof files[currentFile] === 'string' && files[currentFile].startsWith('base64:')) return; // binary files are not edited as text
   files[currentFile] = editorValue(); saveFiles(); renderTabs();
   clearTimeout(diagTimer); diagTimer = setTimeout(runDiagnostics, 650);
 }
@@ -115,16 +122,23 @@ function heuristicDiags(code){
   const out = []; const lines = code.split('\n');
   const builtins = new Set('print len sum min max range enumerate zip sorted type int str float list dict set tuple abs round open input isinstance map filter bool repr chr ord id hash any all next iter reversed'.split(' '));
   const defined = new Set(builtins);
-  lines.forEach(l => {
+  lines.forEach((l, idx) => {
     let m = l.match(/^\s*(?:from\s+\S+\s+import\s+(.+)|import\s+(.+))/); if (m) (m[1]||m[2]).split(',').forEach(x => { const n = x.trim().split(' as ').pop().trim(); if (n && n !== '*') defined.add(n); });
     m = l.match(/^\s*def\s+(\w+)\s*\(([^)]*)\)/); if (m) { defined.add(m[1]); m[2].split(',').forEach(p => { const n = p.trim().split('=')[0].replace('*','').trim(); if (n) defined.add(n); }); }
     m = l.match(/^\s*class\s+(\w+)/); if (m) defined.add(m[1]);
     m = l.match(/^\s*for\s+([\w\s,]+)\s+in\s/); if (m) m[1].split(',').forEach(x => defined.add(x.trim()));
     m = l.match(/^\s*(\w+)\s*(?:=[^=]|\+=|-=|\*=|\/=)/); if (m) defined.add(m[1]);
     m = l.match(/^\s*with\s+.+\s+as\s+(\w+)/); if (m) defined.add(m[1]);
-    if (/def\s+\w+\([^)]*=\s*(\[\]|\{\})/.test(l)) out.push({sev:'warn', line: lines.indexOf(l)+1, msg:'変更可能なデフォルト引数（[] や {}）は呼び出し間で共有されます', fix:'デフォルトを None にして関数内で作り直す'});
-    if (/==\s*None|!=\s*None/.test(l)) out.push({sev:'warn', line: lines.indexOf(l)+1, msg:'None との比較は == ではなく is / is not が推奨されます', fix:null});
-    if (/^\s*(print|len|sum|list|dict|str|int|type|input|id)\s*=/.test(l)) out.push({sev:'warn', line: lines.indexOf(l)+1, msg:'組み込み関数名を変数で上書きしています。後でその関数が使えなくなります', fix:null});
+    if (/def\s+\w+\([^)]*=\s*(\[\]|\{\})/.test(l)) out.push({sev:'warn', line: idx+1, msg:'変更可能なデフォルト引数（[] や {}）は呼び出し間で共有されます', fix:'デフォルトを None にして関数内で作り直す'});
+    if (/==\s*None|!=\s*None/.test(l)) out.push({sev:'warn', line: idx+1, msg:'None との比較は == ではなく is / is not が推奨されます', fix:null});
+    if (/^\s*(print|len|sum|list|dict|str|int|type|input|id)\s*=/.test(l)) out.push({sev:'warn', line: idx+1, msg:'組み込み関数名を変数で上書きしています。後でその関数が使えなくなります', fix:null});
+  });
+  // assigned but never read again (possibility only, worded as such)
+  lines.forEach((l, idx) => {
+    const m = l.match(/^(\w+)\s*=[^=]/);
+    if (!m || m[1].startsWith('_')) return;
+    const uses = (code.match(new RegExp('\\b' + m[1] + '\\b', 'g')) || []).length;
+    if (uses <= 1) out.push({sev:'warn', line: idx+1, msg:`変数「${m[1]}」は代入されていますが、他で使われていない可能性があります`, fix:null});
   });
   const used = new Set(); let inStr = false;
   lines.forEach((l, i) => {
@@ -133,9 +147,12 @@ function heuristicDiags(code){
   });
   const seen = new Set(); return out.filter(d => { const k = d.line + d.msg; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
 }
+let diagSeq = 0;
 async function runDiagnostics(){
   const code = editorValue(); if (!code.trim()) { $('#diagList').innerHTML = ''; $('#diagSummary').textContent = ''; return; }
+  const seq = ++diagSeq;
   const res = await callWorker({ type:'check', code });
+  if (seq !== diagSeq) return; // a newer edit already superseded this result
   const items = [];
   if (res.syntax) items.push({ sev:'error', line: res.syntax.line, msg: `${res.syntax.kind}: ${res.syntax.msg}（${res.syntax.line}行目 ${res.syntax.col}列目）`, fix: null, mistakeHint: true });
   items.push(...heuristicDiags(code));
@@ -150,7 +167,7 @@ function renderTabs(){
   $('#tabBar').innerHTML = Object.keys(files).map(f => `<button class="${f === currentFile ? 'active' : ''}" data-file="${esc(f)}">${esc(f)}</button>`).join('');
   $('#fileList').innerHTML = Object.keys(files).map(f => `<li class="${f === currentFile ? 'active' : ''}" data-file="${esc(f)}"><span>${esc(f)}</span>${Object.keys(files).length > 1 ? `<button class="del" data-del="${esc(f)}" title="削除">✕</button>` : ''}</li>`).join('');
 }
-function switchFile(f){ if (!files[f]) return; files[currentFile] = editorValue(); currentFile = f; setEditorValue(files[f]); saveFiles(); renderTabs(); runDiagnostics(); }
+function switchFile(f){ if (files[f] == null) return; if (!(typeof files[currentFile] === 'string' && files[currentFile].startsWith('base64:'))) files[currentFile] = editorValue(); currentFile = f; setEditorValue(files[f].startsWith('base64:') ? '# バイナリファイル（編集不可）: ' + f + '\n# Pythonからは通常のファイルとして読み込めます' : files[f]); saveFiles(); renderTabs(); runDiagnostics(); }
 $('#tabBar').addEventListener('click', e => { const b = e.target.closest('[data-file]'); if (b) switchFile(b.dataset.file); });
 $('#fileList').addEventListener('click', e => {
   const del = e.target.closest('[data-del]'); if (del) { delete files[del.dataset.del]; if (currentFile === del.dataset.del) currentFile = Object.keys(files)[0]; setEditorValue(files[currentFile]); saveFiles(); renderTabs(); return; }
@@ -197,14 +214,22 @@ async function runCurrent(){
 $('#runBtn').addEventListener('click', runCurrent);
 $('#stopBtn').addEventListener('click', () => {
   if (confirm('実行を中断します。Workerを再生成するためカーネルの変数状態は失われます。よろしいですか？')) {
-    pending.clear(); newWorker(); $('#console').textContent = '中断しました（カーネル再生成）。'; $('#runBtn').disabled = false;
+    flushPending('実行が中断されました'); newWorker(); $('#console').textContent = '中断しました（カーネル再生成）。'; $('#runBtn').disabled = false;
   }
 });
 $('#resetKernelBtn').addEventListener('click', async () => { await callWorker({type:'reset'}); $('#varsView').textContent = 'リセット済み'; });
 $$('.pkg-btns button').forEach(b => b.addEventListener('click', async () => { $('#kernelStatus').textContent = b.dataset.pkg + ' を読み込み中…'; worker.postMessage({type:'load', packages:[b.dataset.pkg]}); }));
 $('#sampleCsvBtn').addEventListener('click', () => { files['sales.csv'] = 'month,sales\n1,120\n2,150\n3,90\n4,200\n'; saveFiles(); renderTabs(); alert('sales.csv を作成しました。pandasで pd.read_csv("sales.csv") と試せます。'); });
 $('#fileUpload').addEventListener('change', async e => {
-  for (const f of e.target.files) { files[f.name] = await f.text(); }
+  for (const f of e.target.files) {
+    if (/\.(xlsx|png|jpe?g|gif|webp|ico)$/i.test(f.name)) {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      let bin = ''; buf.forEach(b => { bin += String.fromCharCode(b); });
+      files[f.name] = 'base64:' + btoa(bin);
+    } else {
+      files[f.name] = await f.text();
+    }
+  }
   saveFiles(); renderTabs(); switchFile(e.target.files[0].name);
 });
 $('#fontSize').addEventListener('change', e => { if (editor) editor.updateOptions({ fontSize: Number(e.target.value) }); });
@@ -267,6 +292,7 @@ function renderNotebook(){
       ${c.type === 'code' ? `<button data-nb="run" data-i="${i}" class="primary">▶ 実行</button>` : ''}
       <button data-nb="del" data-i="${i}">削除</button></div>
     <textarea data-cell="${i}" rows="${c.type === 'code' ? 5 : 3}">${esc(c.source)}</textarea>
+    ${c.type === 'markdown' ? `<div class="nb-md">${esc(c.source).replace(/\n/g, '<br>')}</div>` : ''}
     <div class="nb-out" id="nbOut${i}">${esc(c.out || '')}</div></div>`).join('');
   store.set('notebook', nbCells);
 }
