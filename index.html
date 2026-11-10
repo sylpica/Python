@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<a class="skip" href="#main">本文へスキップ</a>
 <header class="topbar">
   <div class="brand">🐍 Python Studio</div>
   <nav id="mainNav" class="nav" aria-label="主要モード">
@@ -26,21 +27,23 @@
   </nav>
   <div class="top-actions">
     <input id="globalSearch" type="search" placeholder="全体検索（関数・用語・レッスン…）" aria-label="全体検索">
-    <button id="themeToggle" title="ライト/ダーク切替">🌗</button>
+    <button id="themeToggle" title="ライト/ダーク切替" aria-label="ライト/ダーク切替">🌗</button>
   </div>
 </header>
-<div id="searchResults" class="search-results hidden"></div>
+<div id="searchResults" class="search-results hidden" role="region" aria-label="検索結果"></div>
+<div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
 
-<main>
+<main id="main">
   <!-- ===== Studio ===== -->
   <section id="view-studio" class="view active">
     <div class="studio-layout">
       <aside class="panel files-panel">
-        <div class="panel-head"><span>ファイル</span><button id="addFileBtn">＋</button></div>
+        <div class="panel-head"><span>ファイル</span><button id="addFileBtn" aria-label="新しいファイル" title="新しいファイル">＋</button></div>
         <div id="newFileRow" class="new-file-row hidden">
           <input id="newFileName" type="text" placeholder="例: utils.py" aria-label="新しいファイル名">
           <button id="createFileBtn">作成</button>
         </div>
+        <div id="fileRowError" class="field-error" aria-live="polite"></div>
         <ul id="fileList" class="file-list"></ul>
         <div class="panel-head"><span>パッケージ読込</span></div>
         <div class="pkg-btns">
@@ -48,30 +51,33 @@
           <button data-pkg="pandas">pandas</button>
           <button data-pkg="matplotlib">Matplotlib</button>
         </div>
-        <p id="kernelStatus" class="status">カーネル起動中…</p>
+        <p id="kernelStatus" class="status" role="status" aria-live="polite">カーネル起動中…</p>
+        <button id="kernelRetry" class="wide hidden">再試行</button>
         <div class="panel-head"><span>サンプルデータ</span></div>
         <button id="sampleCsvBtn" class="wide">sales.csv を作成</button>
         <label class="fileup wide">ファイル取込<input id="fileUpload" type="file" multiple hidden></label>
       </aside>
 
       <div class="editor-col">
-        <div id="tabBar" class="tabbar"></div>
+        <div id="tabBar" class="tabbar" role="tablist" aria-label="開いているファイル"></div>
         <div id="editor" class="editor"></div>
-        <textarea id="editorFallback" class="editor hidden" spellcheck="false"></textarea>
+        <textarea id="editorFallback" class="editor hidden" spellcheck="false" aria-label="Python コードエディタ"></textarea>
+        <div id="editorNote" class="note"></div>
         <div class="runbar">
           <button id="runBtn" class="primary">▶ 実行 (Ctrl+Enter)</button>
-          <button id="stopBtn">■ 中断</button>
+          <button id="stopBtn" disabled>■ 中断</button>
           <button id="resetKernelBtn">カーネルリセット</button>
           <button id="refWordBtn">カーソル語を参照</button>
-          <label>フォント <input id="fontSize" type="number" min="11" max="22" value="14"></label>
+          <label>文字 <input id="fontSize" type="number" min="11" max="22" value="14" aria-label="エディタの文字サイズ"></label>
+          <span id="runState" class="status" aria-live="polite"></span>
           <span id="diagSummary" class="diag-summary"></span>
         </div>
         <div id="diagList" class="diag-list"></div>
         <div class="console-head">実行結果 <span id="runTime"></span></div>
-        <div id="console" class="console" aria-live="polite"></div>
-        <img id="plotImage" class="plot hidden" alt="Matplotlibのグラフ出力">
+        <div id="console" class="console" role="log" aria-live="polite" tabindex="0"></div>
+        <div id="plotArea"></div>
         <details class="stdin-box"><summary>標準入力（input() 用、1行に1つ）</summary>
-          <textarea id="stdinBox" rows="3" placeholder="input()で読む値を改行区切りで"></textarea>
+          <textarea id="stdinBox" rows="3" placeholder="input()で読む値を改行区切りで" aria-label="標準入力"></textarea>
         </details>
         <div class="vars-head">変数の状態（実行後）</div>
         <div id="varsView" class="vars-view">まだ実行していません</div>
@@ -80,11 +86,11 @@
       <aside class="panel ref-panel">
         <div class="panel-head"><span>リファレンス / 用語集</span></div>
         <div id="sideDetail" class="side-ref">項目を選ぶか、コード中の関数名をダブルクリックすると、ここに説明が出ます。</div>
-        <div class="side-tabs">
-          <button id="sideTabRef" class="active">関数・構文</button>
-          <button id="sideTabGloss">用語集</button>
+        <div class="side-tabs" role="tablist">
+          <button id="sideTabRef" class="active" role="tab">関数・構文</button>
+          <button id="sideTabGloss" role="tab">用語集</button>
         </div>
-        <input id="sideSearch" type="search" placeholder="このパネル内を検索">
+        <input id="sideSearch" type="search" placeholder="このパネル内を検索" aria-label="リファレンス・用語集を検索">
         <div id="sideList" class="side-list"></div>
       </aside>
     </div>
@@ -99,14 +105,14 @@
       <button id="nbExport">.ipynb 書出</button>
       <label class="fileup">.ipynb 読込<input id="nbImport" type="file" accept=".ipynb" hidden></label>
     </div>
-    <p class="note">セルは上から順に同じカーネルで実行され、変数は共有されます。上のセルを変更しても下のセルは自動で再実行されません。</p>
+    <p class="note">Studio と同じカーネルで実行し、変数とファイルを共有します。[n] は実行した順番です。セルの最後の式の値は表示されます。Shift+Enter でセル実行。</p>
     <div id="nbCells"></div>
   </section>
 
   <!-- ===== Lessons ===== -->
   <section id="view-lessons" class="view">
     <div class="split">
-      <div class="list-col"><input id="lessonFilter" type="search" placeholder="レッスンを絞り込み"><div id="lessonList"></div></div>
+      <div class="list-col"><input id="lessonFilter" type="search" placeholder="レッスンを絞り込み" aria-label="レッスンを絞り込み"><div id="lessonList"></div></div>
       <article id="lessonDetail" class="detail">左からレッスンを選んでください。</article>
     </div>
   </section>
@@ -120,19 +126,19 @@
       <button data-qmode="bug" class="qmode">バグ修正</button>
       <button id="reviewWrongBtn">間違えた問題を復習</button>
       <button id="shuffleBtn">🔀 シャッフルし直す</button>
-      <button id="optShuffleBtn">選択肢シャッフル: ON</button>
+      <button id="optShuffleBtn" aria-pressed="true">選択肢シャッフル: ON</button>
       <button id="bookmarkQuizBtn">★ ブックマークから出題</button>
       <span id="quizScore" class="status"></span>
     </div>
-    <div id="quizArea"></div>
+    <div id="quizArea" aria-live="polite"></div>
   </section>
 
   <!-- ===== Reference ===== -->
   <section id="view-reference" class="view">
     <div class="split">
       <div class="list-col">
-        <input id="refSearch" type="search" placeholder="関数・メソッド・構文を検索">
-        <select id="refSort"><option value="importance">重要度順</option><option value="name">名前順</option><option value="category">カテゴリ順</option></select>
+        <input id="refSearch" type="search" placeholder="関数・メソッド・構文を検索" aria-label="リファレンスを検索">
+        <select id="refSort" aria-label="並べ替え"><option value="importance">重要度順</option><option value="name">名前順</option><option value="category">カテゴリ順</option></select>
         <div id="refList"></div>
       </div>
       <article id="refDetail" class="detail">左から項目を選んでください。</article>
@@ -143,8 +149,8 @@
   <section id="view-glossary" class="view">
     <div class="split">
       <div class="list-col">
-        <input id="glossSearch" type="search" placeholder="用語を検索（日本語・英語）">
-        <select id="glossSort"><option value="importance">重要度順</option><option value="name">名前順</option></select>
+        <input id="glossSearch" type="search" placeholder="用語を検索（日本語・英語）" aria-label="用語を検索">
+        <select id="glossSort" aria-label="並べ替え"><option value="importance">重要度順</option><option value="name">名前順</option></select>
         <div id="glossList"></div>
       </div>
       <article id="glossDetail" class="detail">左から用語を選んでください。</article>
@@ -154,7 +160,7 @@
   <!-- ===== Mistakes ===== -->
   <section id="view-mistakes" class="view">
     <div class="split">
-      <div class="list-col"><input id="mistakeSearch" type="search" placeholder="エラーメッセージや症状で検索"><div id="mistakeList"></div></div>
+      <div class="list-col"><input id="mistakeSearch" type="search" placeholder="エラーメッセージや症状で検索" aria-label="よくある間違いを検索"><div id="mistakeList"></div></div>
       <article id="mistakeDetail" class="detail">左から項目を選んでください。</article>
     </div>
   </section>
@@ -164,7 +170,7 @@
     <h2 class="vh">環境構築・パッケージ</h2>
     <div id="envList" class="cards"></div>
     <h3>パッケージカタログ</h3>
-    <p class="note">「ブラウザ内」の列は Pyodide 環境での対応状況です。通常のPC環境への導入方法とは区別しています。</p>
+    <p class="note">「ブラウザ内」の列は、このアプリの Pyodide 0.26.4 で import と簡単な処理を実際に実行して確認した結果です（2026-11-10）。通常のPC環境への導入方法とは別です。</p>
     <div id="pkgTable"></div>
   </section>
 
@@ -180,8 +186,10 @@
     <h3>演習履歴</h3><div id="historyView"></div>
     <h3>ブックマーク</h3><div id="bookmarkView"></div>
     <div class="foot-note">
-      <p>対応Python: Pyodide 0.26.4 / CPython 3.12 系（ブラウザ実行）。通常のPC版Pythonとは一部機能が異なります（subprocess、ソケット、OS依存パッケージ等は非対応）。静的診断は構文解析（本物のPythonパーサ）と軽量ヒューリスティクス警告の組み合わせで、型の完全な推論は行いません。診断結果で断定できないものは「可能性」として表示します。</p>
-      <p>オフライン: アプリ本体と学習データはキャッシュされます。Pyodide本体と追加パッケージは初回にダウンロードが必要です。</p>
+      <p>対応Python: Pyodide 0.26.4（CPython 3.12.1 のブラウザ版）。通常のPC版Pythonとは一部機能が異なります（subprocess・ソケット通信・スレッドの多く・OS依存パッケージは使えません）。</p>
+      <p>診断: 構文エラーは Python 本体のパーサで判定します。警告は構文木（AST）による保守的な推定で、スコープや型を完全には解析しない（型チェッカーではない）ため「可能性」として表示します。</p>
+      <p>保存: データはこの端末のブラウザ（localStorage）にのみ保存され、外部には送信しません。ブラウザのデータ削除で消えるため、定期的に書出してください。</p>
+      <p>オフライン: アプリ本体と学習データはキャッシュされます。Python 本体・パッケージは、一度オンラインで読み込んだものだけがオフラインで使えます。</p>
     </div>
   </section>
 </main>
