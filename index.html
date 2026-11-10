@@ -74,8 +74,14 @@
       </div>
 
       <aside class="panel ref-panel">
-        <div class="panel-head"><span>リファレンス / 用語</span></div>
-        <div id="sideRef" class="side-ref">コード中の関数名をダブルクリックするか、「カーソル語を参照」を押すと、ここに説明が出ます。</div>
+        <div class="panel-head"><span>リファレンス / 用語集</span></div>
+        <div id="sideDetail" class="side-ref">項目を選ぶか、コード中の関数名をダブルクリックすると、ここに説明が出ます。</div>
+        <div class="side-tabs">
+          <button id="sideTabRef" class="active">関数・構文</button>
+          <button id="sideTabGloss">用語集</button>
+        </div>
+        <input id="sideSearch" type="search" placeholder="このパネル内を検索">
+        <div id="sideList" class="side-list"></div>
       </aside>
     </div>
   </section>
@@ -109,6 +115,9 @@
       <button data-qmode="code" class="qmode">コーディング</button>
       <button data-qmode="bug" class="qmode">バグ修正</button>
       <button id="reviewWrongBtn">間違えた問題を復習</button>
+      <button id="shuffleBtn">🔀 シャッフルし直す</button>
+      <button id="optShuffleBtn">選択肢シャッフル: ON</button>
+      <button id="bookmarkQuizBtn">★ ブックマークから出題</button>
       <span id="quizScore" class="status"></span>
     </div>
     <div id="quizArea"></div>
