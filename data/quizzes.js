@@ -1,4 +1,4 @@
-// Python総合学習アプリ 四択問題データ（正解はPython 3.12の実行または確実な知識で検証済み）
+// 演習データ。正答は tests/content.test.mjs で CPython 3.12 と Pyodide 0.26.4 の実行結果に照合しています。
 export const QUIZZES = [
  {
   "id": "q001",
@@ -14,7 +14,7 @@ export const QUIZZES = [
    "4"
   ],
   "answer": 0,
-  "explanation": "// は商の整数部分を返す切り捨て除算なので 7//2 は 3 です。3.5 は通常の / の結果、2 は余り 7%2 ではありませんし、4 は四捨五入した値でPythonの // の規則とは違います。",
+  "explanation": "// は商の整数部分を返す切り捨て除算なので 7//2 は 3 です。3.5 は通常の / の結果、2 は割る数そのもの（余り 7%2 は 1）であり、4 は四捨五入した値でPythonの // の規則とは違います。",
   "lesson": "operators"
  },
  {
@@ -128,10 +128,10 @@ export const QUIZZES = [
    "yt",
    "Py",
    "yth",
-   "yt "
+   "th"
   ],
   "answer": 0,
-  "explanation": "スライス [1:3] はインデックス1から2までを取り出すので yt です。Py は [0:2]、yth は [1:4] の結果で、終了位置は含まれないため範囲を取り違えた選択肢は誤りです。",
+  "explanation": "スライス [1:3] はインデックス1から2までを取り出すので yt です。Py は [0:2]、yth は [1:4]、th は [2:4] の結果で、終了位置は含まれないため範囲を取り違えた選択肢は誤りです。",
   "lesson": "tuple-slice"
  },
  {
@@ -633,16 +633,16 @@ export const QUIZZES = [
   "type": "choice",
   "category": "基礎文法",
   "level": "基礎",
-  "question": "次のコード実行後の a と b の値はどれですか？",
-  "code": "a, b = 1, 2\na, b = b, a",
+  "question": "次のコードの出力はどれですか？",
+  "code": "first, *rest = [1, 2, 3]\nprint(rest)",
   "options": [
-   "a は 1、b は 2",
-   "a は 2、b は 2",
-   "a は 2、b は 1",
+   "(2, 3)",
+   "2",
+   "[2, 3]",
    "エラーになる"
   ],
   "answer": 2,
-  "explanation": "右辺が先に評価されるため、一時変数なしで値を交換でき a は 2、b は 1 になります。代入が左から順に起きて両方 2 になるわけではなく、文法としても正しい書き方です。",
+  "explanation": "* を付けた代入先は残りの要素をまとめて受け取り、常にリストになります（右辺がタプルでもリスト）。したがって [2, 3] です。タプル (2, 3) にはならず、要素数が合わなくてもエラーにはなりません。",
   "lesson": "tuple-slice"
  },
  {
@@ -694,7 +694,7 @@ export const QUIZZES = [
   ],
   "answer": 2,
   "lesson": "strings",
-  "explanation": "f文字列の :.2f は小数第2位までの書式指定で、四捨五入されて 3.14 になります。書式を指定しなければ元の値そのままが表示されます。"
+  "explanation": "f文字列の :.2f は小数点以下2桁で表示する書式指定で、3.14 に丸められます（丸めは2進数で表された値に対して行われるため、2.675 → 2.67 のように単純な四捨五入と異なる場合があります）。書式を指定しなければ元の値そのままが表示されます。"
  },
  {
   "id": "q043",
@@ -831,5 +831,186 @@ export const QUIZZES = [
   "answer": 1,
   "lesson": "loops",
   "explanation": "enumerate は (番号, 要素) のペアを生成し、start=1 で番号が1から始まるので [(1, 'a'), (2, 'b')] です。"
+ }
+];
+
+export const FILLS = [
+ {
+  "id": "f-len",
+  "q": "リストの長さを求める: print(___(items))",
+  "options": [
+   "count",
+   "len",
+   "size",
+   "length"
+  ],
+  "answer": 1,
+  "lesson": "lists",
+  "explain": "要素数は組み込み関数 len() で求めます。count は「特定の値の個数」を数えるメソッド、size/length は Python の組み込みにはありません。"
+ },
+ {
+  "id": "f-get",
+  "q": "辞書でキーが無いときに None を返す: value = d.___(\"key\")",
+  "options": [
+   "find",
+   "search",
+   "get",
+   "fetch"
+  ],
+  "answer": 2,
+  "lesson": "dict-operations",
+  "explain": "dict.get はキーが無ければ None（または第2引数の既定値）を返します。"
+ },
+ {
+  "id": "f-range",
+  "q": "0から4まで繰り返す: for i in ___(5):",
+  "options": [
+   "loop",
+   "count",
+   "seq",
+   "range"
+  ],
+  "answer": 3,
+  "lesson": "loops",
+  "explain": "range(5) は 0,1,2,3,4 を順に生成します。"
+ },
+ {
+  "id": "f-split",
+  "q": "文字列をカンマで分割する: parts = text.___(\",\")",
+  "options": [
+   "split",
+   "cut",
+   "divide",
+   "parse"
+  ],
+  "answer": 0,
+  "lesson": "string-methods",
+  "explain": "str.split は区切り文字で分割してリストを返します。"
+ },
+ {
+  "id": "f-except",
+  "q": "例外を捕まえる: ___ ValueError:",
+  "options": [
+   "catch",
+   "except",
+   "handle",
+   "error"
+  ],
+  "answer": 1,
+  "lesson": "exceptions",
+  "explain": "Python の例外捕捉は except です。catch は Java や JavaScript などの書き方です。"
+ },
+ {
+  "id": "f-with",
+  "q": "ファイルを開いて自動で閉じる: ___ open(\"a.txt\", encoding=\"utf-8\") as f:",
+  "options": [
+   "using",
+   "open",
+   "as",
+   "with"
+  ],
+  "answer": 3,
+  "lesson": "context-manager",
+  "explain": "with 文で開くと、ブロックを抜けたとき（例外時も含む）に自動で閉じられます。using は C# の書き方です。"
+ }
+];
+
+export const CODING = [
+ {
+  "id": "sum-avg",
+  "title": "合計と平均",
+  "desc": "リスト numbers の合計と平均を「合計: X」「平均: Y」の2行で表示してください（numbers の中身が変わっても正しく動くように）",
+  "starter": "numbers = [10, 20, 30, 40]\n# ここにコードを書く\n",
+  "expect": "合計: 100\n平均: 25.0",
+  "variants": [
+   {
+    "replace": [
+     "numbers = [10, 20, 30, 40]",
+     "numbers = [3, 4, 5]"
+    ],
+    "expect": "合計: 12\n平均: 4.0"
+   }
+  ],
+  "hint": "sum() と len() を使います。print(\"合計:\", ...) のようにカンマで区切ると間に空白が入ります",
+  "lesson": "lists"
+ },
+ {
+  "id": "evens",
+  "title": "偶数だけ抽出",
+  "desc": "1から10までの偶数だけをリストにして表示してください",
+  "starter": "# 内包表記がおすすめです\n",
+  "expect": "[2, 4, 6, 8, 10]",
+  "hint": "[x for x in range(1, 11) if x % 2 == 0]",
+  "lesson": "comprehensions"
+ },
+ {
+  "id": "char-count",
+  "title": "文字数カウント",
+  "desc": "文字列 s の各文字の出現回数を、最初に現れた順の辞書で表示してください",
+  "starter": "s = \"banana\"\ncounts = {}\n# ここにコードを書く\nprint(counts)\n",
+  "expect": "{'b': 1, 'a': 3, 'n': 2}",
+  "variants": [
+   {
+    "replace": [
+     "s = \"banana\"",
+     "s = \"abca\""
+    ],
+    "expect": "{'a': 2, 'b': 1, 'c': 1}"
+   }
+  ],
+  "hint": "for 文で1文字ずつ取り出し、counts[ch] = counts.get(ch, 0) + 1 と数えます（collections.Counter を使っても構いません）",
+  "lesson": "dict-operations"
+ },
+ {
+  "id": "fizzbuzz",
+  "title": "FizzBuzz（1〜15）",
+  "desc": "1から15まで、3の倍数はFizz、5の倍数はBuzz、両方の倍数はFizzBuzz、それ以外は数字を1行に1つずつ表示してください",
+  "starter": "",
+  "expect": "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz",
+  "hint": "% 演算子で余りを見ます。15の倍数（両方）を最初に判定します",
+  "lesson": "conditionals"
+ }
+];
+
+export const BUGS = [
+ {
+  "id": "eq",
+  "title": "= と == の混同",
+  "bad": "x = 5\nif x = 5:\n    print(\"5です\")\n",
+  "good": "x = 5\nif x == 5:\n    print(\"5です\")\n",
+  "expect": "5です",
+  "hint": "比較には == を使います",
+  "lesson": "conditionals",
+  "mistake": "eq-vs-assign"
+ },
+ {
+  "id": "colon",
+  "title": "コロンの付け忘れ",
+  "bad": "for i in range(3)\n    print(i)\n",
+  "good": "for i in range(3):\n    print(i)\n",
+  "expect": "0\n1\n2",
+  "hint": "for 文の末尾に : が必要です",
+  "lesson": "loops",
+  "mistake": "missing-colon"
+ },
+ {
+  "id": "str-num",
+  "title": "文字列と数値の混同",
+  "bad": "age = \"20\"\nprint(age + 5)\n",
+  "good": "age = \"20\"\nprint(int(age) + 5)\n",
+  "expect": "25",
+  "hint": "int() で数値に変換します",
+  "lesson": "variables-types",
+  "mistake": "str-num-mix"
+ },
+ {
+  "id": "indent",
+  "title": "インデントミス",
+  "bad": "if True:\nprint(\"ok\")\n",
+  "good": "if True:\n    print(\"ok\")\n",
+  "expect": "ok",
+  "hint": "if の中身は字下げ（スペース4つ）します",
+  "lesson": "conditionals",
+  "mistake": "indentation-error"
  }
 ];

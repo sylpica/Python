@@ -1,69 +1,134 @@
 import { LESSONS } from './data/lessons.js';
-import { QUIZZES } from './data/quizzes.js';
+import { QUIZZES, FILLS, CODING, BUGS } from './data/quizzes.js';
 import { REFERENCE } from './data/reference.js';
 import { GLOSSARY } from './data/glossary.js';
 import { TEMPLATES } from './data/templates.js';
 import { MISTAKES, PACKAGES, ENV_LESSONS } from './data/extras.js';
+import { normalizeFiles, normalizeProgress, normalizeNotebook, renderMarkdown, explainError, checkCodingAnswer,
+  nbToIpynb, ipynbToNb, validFileName, PROTOCOL, SCHEMA } from './lib/core.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const IMP = {'最重要':0,'重要':1,'応用':2,'専門':3};
+const isBinary = v => typeof v === 'string' && v.startsWith('base64:');
 
-/* ---------- persistent state (localStorage; large code kept per-file keys) ---------- */
+/* ---------- banner (storage failures, kernel problems, updates) ---------- */
+function banner(text, kind = 'warn', actions = ''){
+  const b = $('#banner'); b.className = 'banner ' + kind; b.innerHTML = `<span>${esc(text)}</span>${actions}<button class="banner-x" aria-label="閉じる">✕</button>`;
+  b.querySelector('.banner-x').onclick = () => b.classList.add('hidden');
+}
+
+/* ---------- persistent state (localStorage, namespaced keys only) ---------- */
+const PREFIX = 'pystudio:';
+let storageWarned = false;
 const store = {
-  get(k, d){ try { const v = localStorage.getItem('pystudio:'+k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
-  set(k, v){ try { localStorage.setItem('pystudio:'+k, JSON.stringify(v)); } catch(e){} }
+  get(k, d){ try { const v = localStorage.getItem(PREFIX + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){
+    try { localStorage.setItem(PREFIX + k, JSON.stringify(v)); return true; }
+    catch(e){
+      if (!storageWarned) { storageWarned = true; banner('端末への保存に失敗しました（保存容量の不足など）。大きなファイルや Notebook の画像出力を減らすか、学習状況タブからバックアップを書き出してください。', 'error'); }
+      return false;
+    }
+  },
+  keys(){ const out = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX)) out.push(k); } } catch(e){} return out; }
 };
-let files = store.get('files', { 'main.py': '# Python Studio へようこそ\nnumbers = [10, 20, 30]\nprint("合計:", sum(numbers))\nprint("平均:", sum(numbers) / len(numbers))\n' });
+// one-time migration hook: schema 1 (no marker) -> 2. Shapes are normalized, never discarded.
+if (store.get('schema', 1) < SCHEMA) {
+  const raw = store.get('progress', null);
+  if (raw) store.set('progress-backup-v1', raw);
+  store.set('progress', normalizeProgress(raw, QUIZZES)); store.set('schema', SCHEMA);
+}
+let files = normalizeFiles(store.get('files', null));
 let currentFile = store.get('currentFile', 'main.py');
-if (!files[currentFile]) currentFile = Object.keys(files)[0];
-let progress = store.get('progress', { lessonsDone: [], history: [], bookmarks: [], wrong: [] });
-let nbCells = store.get('notebook', [ {type:'markdown', source:'# Notebook\nセルを実行して結果を確認しましょう。'}, {type:'code', source:'x = 21\nprint(x * 2)'} ]);
+if (files[currentFile] == null) currentFile = Object.keys(files)[0];
+let progress = normalizeProgress(store.get('progress', null), QUIZZES);
+let nbCells = normalizeNotebook(store.get('notebook', null));
+let nbMeta = store.get('notebookMeta', null);
 function saveProgress(){ store.set('progress', progress); }
 function saveFiles(){ store.set('files', files); store.set('currentFile', currentFile); }
+function saveNotebook(){ store.set('notebook', nbCells); if (nbMeta) store.set('notebookMeta', nbMeta); }
 
 /* ---------- kernel (Pyodide worker) ---------- */
-let worker = null, runSeq = 0; const pending = new Map();
+let worker = null, gen = 0, runSeq = 0, kernelState = 'starting', startTimer = null;
+const pending = new Map();   // id -> {resolve, onStream, gen}
+function setStatus(t){ $('#kernelStatus').textContent = t; }
 function newWorker(){
   if (worker) worker.terminate();
+  flushPending('カーネルが再起動されたため、この実行は完了しませんでした');
+  const myGen = ++gen; kernelState = 'starting'; setStatus('カーネル起動中…（初回は Python 本体を数MBダウンロードします）'); $('#kernelRetry').classList.add('hidden');
   worker = new Worker('worker.js');
+  clearTimeout(startTimer);
+  startTimer = setTimeout(() => { if (myGen === gen && kernelState === 'starting') setStatus('カーネル起動に時間がかかっています。回線状況を確認してください（オフライン時は過去に一度読み込んだ場合のみ起動できます）。'); }, 30000);
   worker.onmessage = ev => {
+    if (myGen !== gen) return;               // reply from a replaced worker
     const m = ev.data;
-    if (m.type === 'ready') { $('#kernelStatus').textContent = 'カーネル準備完了（Python ' + m.python + ' / Pyodide 0.26.4）'; runDiagnostics(); }
-    if (m.id != null && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-    if (m.type === 'loaded') { $('#kernelStatus').textContent = 'パッケージ読込完了: ' + m.packages.join(', '); }
-    if (m.type === 'reset-done') { $('#kernelStatus').textContent = 'カーネルをリセットしました'; }
+    if (m.type === 'ready') {
+      kernelState = 'ready'; clearTimeout(startTimer);
+      if (m.protocol !== PROTOCOL) { banner('アプリが更新されました。ページを再読み込みしてください（編集中のコードは保存済みです）。', 'warn', '<button onclick="location.reload()">再読み込み</button>'); }
+      setStatus('カーネル準備完了（Python ' + m.python + ' / Pyodide 0.26.4）'); runDiagnostics();
+      return;
+    }
+    if (m.type === 'init-error') { kernelState = 'failed'; clearTimeout(startTimer); setStatus('カーネルを起動できませんでした: ' + m.error); $('#kernelRetry').classList.remove('hidden'); flushPending('Python を起動できませんでした（オフライン、または CDN に接続できません）。「再試行」を押してください。'); return; }
+    if (m.type === 'status') { setStatus(m.text); return; }
+    if (m.type === 'stream') { const p = pending.get(m.id); if (p && p.onStream) p.onStream(m.segs); return; }
+    if (m.id != null && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); p.resolve(m); }
+    if (m.type === 'loaded') setStatus(m.error ? 'パッケージ読込失敗: ' + m.error : 'パッケージ読込完了: ' + m.packages.join(', '));
+    if (m.type === 'result' && m.fatal) crashed('Python カーネルが致命的なエラーで停止しました。新しいカーネルを起動します（変数は失われました）。');
   };
+  worker.onerror = e => { if (myGen !== gen) return; e.preventDefault && e.preventDefault(); crashed('カーネルが異常終了しました: ' + (e.message || '不明なエラー') + '。新しいカーネルを起動します（変数は失われました）。'); };
 }
-function callWorker(msg){ return new Promise(res => { const id = ++runSeq; pending.set(id, res); worker.postMessage({...msg, id}); }); }
+function crashed(msg){ banner(msg, 'error'); newWorker(); nbExecCount = 0; }
+function callWorker(msg, onStream){
+  return new Promise(resolve => { const id = ++runSeq; pending.set(id, { resolve, onStream }); worker.postMessage({ ...msg, id }); });
+}
 let runChain = Promise.resolve();
-function runPython(code, opts = {}){
-  // serialize all executions: concurrent runs would interleave stdout/kernel state
-  const p = runChain.then(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin, packages: opts.packages }));
-  runChain = p.then(() => {}, () => {});
-  return p;
+function enqueue(fn){ const p = runChain.then(fn); runChain = p.then(() => {}, () => {}); return p; }
+function runPython(code, opts = {}, onStream){
+  // every execution / reset goes through one queue: no interleaved stdout or kernel state
+  return enqueue(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin ?? '', isolated: !!opts.isolated,
+    wantLast: !!opts.wantLast, filename: opts.filename || 'main.py', stream: !!onStream }, onStream));
 }
 function flushPending(reason){
-  for (const [, res] of pending) res({ type:'result', stdout:'', stderr:'', error: reason, ms:0, image:null, vars:[], syntax:null });
+  for (const [, p] of pending) p.resolve({ type:'result', segs:[{ s:'err', t: reason }], error:{ type:'Interrupted', message: reason, text: reason }, images:[], vars:[], ms:0, syntax:null, warnings:[] });
   pending.clear();
 }
+$('#kernelRetry').addEventListener('click', () => newWorker());
 newWorker();
+
+/* ---------- shared output rendering ---------- */
+function segsHtml(segs){ return (segs || []).map(s => s.s === 'err' ? `<span class="cerr">${esc(s.t)}</span>` : esc(s.t)).join(''); }
+function outputHtml(res, opts = {}){
+  let html = segsHtml(res.segs);
+  if (res.result != null) html += `<span class="cres">${esc(res.result)}</span>`;
+  if (res.error && res.error.type !== 'Interrupted') {
+    const ex = explainError(res.error);
+    if (ex) html += `\n<span class="chint">💡 ${esc(ex.text)}${ex.mid ? ` <a href="#" data-goto-mistake="${esc(ex.mid)}">よくある間違いで詳しく見る</a>` : ''}</span>`;
+  }
+  if (res.note) html += `\n<span class="cnote">${esc(res.note)}</span>`;
+  if (res.asyncioShim) html += `\n<span class="cnote">※ ブラウザ版では asyncio.run(…) をトップレベルの await として実行しました（通常の Python では asyncio.run がそのまま動きます）。</span>`;
+  if (!html && !opts.keepEmpty) html = '（出力なし）';
+  return html;
+}
+function imagesHtml(images){ return (images || []).map((b, i) => `<img class="plot" alt="グラフ出力 ${i + 1}" src="data:image/png;base64,${esc(b)}">`).join(''); }
+document.addEventListener('click', e => { const a = e.target.closest('[data-goto-mistake]'); if (a) { e.preventDefault(); __goMistake(a.dataset.gotoMistake); } });
 
 /* ---------- navigation ---------- */
 function showView(name){
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
-  $$('.navbtn').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  $$('.navbtn').forEach(b => { b.classList.toggle('active', b.dataset.view === name); b.setAttribute('aria-current', b.dataset.view === name ? 'page' : 'false'); });
   $('#searchResults').classList.add('hidden');
   if (name === 'progress') renderProgress();
+  if (name === 'studio' && editor) setTimeout(() => editor.layout(), 0);
 }
+window.showView = showView;
 $('#mainNav').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) showView(b.dataset.view); });
 $('#themeToggle').addEventListener('click', () => {
-  const cur = document.documentElement.dataset.theme === 'dark' ? '' : 'dark';
+  const cur = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = cur; store.set('theme', cur);
   if (window.monaco) monaco.editor.setTheme(cur === 'dark' ? 'vs-dark' : 'vs');
 });
-if (store.get('theme','') === 'dark') document.documentElement.dataset.theme = 'dark';
+{ const t = store.get('theme', ''); const dark = t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; }
 
 /* ---------- cross-links ---------- */
 const refById = Object.fromEntries(REFERENCE.map(r => [r.id, r]));
@@ -73,188 +138,233 @@ window.__goRef = id => { showView('reference'); selectRef(id); };
 window.__goTerm = id => { showView('glossary'); selectTerm(id); };
 window.__goLesson = id => { showView('lessons'); selectLesson(id); };
 window.__goMistake = id => { showView('mistakes'); selectMistake(id); };
+window.__goEnv = id => { showView('env'); const el = document.getElementById('env-' + id); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); } };
+window.__goQuiz = id => { showView('quiz'); const z = QUIZZES.find(x => x.id === id); if (!z) return; setQmode('choice'); quizQueue = [withShuffledOptions(z)]; quizIdx = 0; quizRight = 0; showChoice(); };
 function termChips(ids){ return (ids||[]).filter(id => termById[id]).map(id => `<button class="chip" onclick="__goTerm('${id}')">${esc(termById[id].ja)}</button>`).join(''); }
 function refChips(ids){ return (ids||[]).filter(id => refById[id]).map(id => `<button class="chip" onclick="__goRef('${id}')">${esc(refById[id].name)}</button>`).join(''); }
 
 /* ---------- global search ---------- */
+function searchAll(q){
+  const hits = [];
+  const has = (...xs) => xs.join(' ').toLowerCase().includes(q);
+  REFERENCE.forEach(r => { if (has(r.name, r.id, r.summary, r.category, r.syntax)) hits.push({t:'リファレンス', title:r.name, sub:r.summary, act:`__goRef('${r.id}')`}); });
+  GLOSSARY.forEach(g => { if (has(g.ja, g.en, g.def)) hits.push({t:'用語', title:g.ja, sub:g.def, act:`__goTerm('${g.id}')`}); });
+  LESSONS.forEach(l => { if (has(l.title, l.body, l.category, l.code)) hits.push({t:'レッスン', title:l.title, sub:l.goal, act:`__goLesson('${l.id}')`}); });
+  QUIZZES.forEach(z => { if (has(z.question, z.code || '', z.category, z.options.join(' '))) hits.push({t:'問題', title:z.question.slice(0,60) + (z.code ? '：' + z.code.split('\n')[0].slice(0, 40) : ''), sub:z.category, act:`__goQuiz('${z.id}')`}); });
+  MISTAKES.forEach(m => { if (has(m.title, m.cause, m.phenomenon, m.bad)) hits.push({t:'間違い', title:m.title, sub:m.phenomenon, act:`__goMistake('${m.id}')`}); });
+  PACKAGES.forEach(p => { if (has(p.name, p.desc, p.field, p.usage)) hits.push({t:'パッケージ', title:p.name, sub:p.desc, act:`__goEnv('pkg-${p.id}')`}); });
+  ENV_LESSONS.forEach(e => { if (has(e.title, e.body, e.points.join(' '))) hits.push({t:'環境構築', title:e.title, sub:e.points[0], act:`__goEnv('${e.id}')`}); });
+  return hits;
+}
 $('#globalSearch').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase(); const box = $('#searchResults');
   if (!q) { box.classList.add('hidden'); return; }
-  const hits = [];
-  REFERENCE.forEach(r => { if ((r.name+r.summary+r.category).toLowerCase().includes(q)) hits.push({t:'リファレンス', title:r.name, sub:r.summary, act:`__goRef('${r.id}')`}); });
-  GLOSSARY.forEach(g => { if ((g.ja+g.en+g.def).toLowerCase().includes(q)) hits.push({t:'用語', title:g.ja, sub:g.def, act:`__goTerm('${g.id}')`}); });
-  LESSONS.forEach(l => { if ((l.title+l.body+l.category).toLowerCase().includes(q)) hits.push({t:'レッスン', title:l.title, sub:l.goal, act:`__goLesson('${l.id}')`}); });
-  QUIZZES.forEach(z => { if ((z.question+z.category).toLowerCase().includes(q)) hits.push({t:'問題', title:z.question.slice(0,60), sub:z.category, act:`showView('quiz')`}); });
-  MISTAKES.forEach(m => { if ((m.title+m.cause+m.phenomenon).toLowerCase().includes(q)) hits.push({t:'間違い', title:m.title, sub:m.phenomenon, act:`__goMistake('${m.id}')`}); });
-  PACKAGES.forEach(p => { if ((p.name+p.desc+p.field).toLowerCase().includes(q)) hits.push({t:'パッケージ', title:p.name, sub:p.desc, act:`showView('env')`}); });
-  box.innerHTML = hits.slice(0, 20).map(h => `<div class="item" onclick="${h.act}"><span class="badge">${h.t}</span> <b>${esc(h.title)}</b><div class="meta">${esc(h.sub)}</div></div>`).join('') || '<div class="item">該当なし</div>';
+  const hits = searchAll(q);
+  box.innerHTML = (hits.length > 30 ? `<div class="meta">${hits.length}件中 30件を表示</div>` : '') + (hits.slice(0, 30).map(h => `<button class="item sr" onclick="${h.act}"><span class="badge">${h.t}</span> <b>${esc(h.title)}</b><div class="meta">${esc(h.sub)}</div></button>`).join('') || '<div class="item">該当なし</div>');
   box.classList.remove('hidden');
 });
-window.showView = showView;
+$('#globalSearch').addEventListener('keydown', e => { if (e.key === 'Escape') { e.target.value = ''; $('#searchResults').classList.add('hidden'); } });
 
 /* ================= Studio ================= */
 let editor = null;
 function editorValue(){ return editor ? editor.getValue() : $('#editorFallback').value; }
-function setEditorValue(v){ if (editor) editor.setValue(v); else $('#editorFallback').value = v; }
+let suppressEdit = false;
+function setEditorValue(v){ suppressEdit = true; if (editor) editor.setValue(v); else $('#editorFallback').value = v; suppressEdit = false; }
+function binaryNote(name){ const len = Math.floor((files[name].length - 7) * 3 / 4); return `# バイナリファイル（または UTF-8 以外の文字コード）: ${name}（約 ${len.toLocaleString()} バイト）\n# エディタでは編集できません。Python からは open("${name}", "rb") や encoding 指定で読み込めます。\n`; }
+function displayText(name){ return isBinary(files[name]) ? binaryNote(name) : files[name]; }
+function updateReadOnly(){ const ro = isBinary(files[currentFile]); if (editor) editor.updateOptions({ readOnly: ro }); else $('#editorFallback').readOnly = ro; }
 function initEditor(){
-  const fallback = () => { $('#editor').classList.add('hidden'); const ta = $('#editorFallback'); ta.classList.remove('hidden'); ta.value = files[currentFile]; ta.addEventListener('input', onEdit); };
+  const fallback = () => { $('#editor').classList.add('hidden'); const ta = $('#editorFallback'); ta.classList.remove('hidden'); ta.value = displayText(currentFile); ta.addEventListener('input', onEdit); updateReadOnly(); $('#editorNote').textContent = 'コードエディタ（Monaco）を読み込めなかったため、簡易エディタで表示しています。'; };
   if (!window.require) return fallback();
   try {
     window.require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } });
     window.require(['vs/editor/editor.main'], () => {
-      editor = monaco.editor.create($('#editor'), { value: files[currentFile], language: 'python', automaticLayout: true,
-        fontSize: Number($('#fontSize').value) || 14, minimap: { enabled: false }, theme: document.documentElement.dataset.theme === 'dark' ? 'vs-dark' : 'vs' });
+      editor = monaco.editor.create($('#editor'), { value: displayText(currentFile), language: 'python', automaticLayout: true,
+        fontSize: Number($('#fontSize').value) || 14, minimap: { enabled: false }, tabSize: 4, insertSpaces: true,
+        ariaLabel: 'Python コードエディタ', theme: document.documentElement.dataset.theme === 'dark' ? 'vs-dark' : 'vs' });
       window.monaco = monaco;
       editor.onDidChangeModelContent(onEdit);
+      editor.onDidChangeCursorPosition(() => { if (lastDiag) renderDiagnostics(lastDiag); });
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCurrent);
       editor.onMouseDown(e => { if (e.event.detail === 2) lookupWordAtCursor(); });
-      $('#editorFallback').classList.add('hidden');
+      $('#editorFallback').classList.add('hidden'); updateReadOnly();
       runDiagnostics();
     }, fallback);
   } catch(e){ fallback(); }
 }
-let diagTimer = null;
+let diagTimer = null, lastEditAt = 0;
 function onEdit(){
-  if (typeof files[currentFile] === 'string' && files[currentFile].startsWith('base64:')) return; // binary files are not edited as text
-  files[currentFile] = editorValue(); saveFiles(); renderTabs();
-  clearTimeout(diagTimer); diagTimer = setTimeout(runDiagnostics, 650);
+  if (suppressEdit || isBinary(files[currentFile])) return;
+  files[currentFile] = editorValue(); lastEditAt = Date.now(); saveFiles();
+  if (editor && window.monaco) monaco.editor.setModelMarkers(editor.getModel(), 'pystudio-run', []);
+  clearTimeout(diagTimer); diagTimer = setTimeout(runDiagnostics, 500);
 }
-function heuristicDiags(code){
-  const out = []; const lines = code.split('\n');
-  const builtins = new Set('print len sum min max range enumerate zip sorted type int str float list dict set tuple abs round open input isinstance map filter bool repr chr ord id hash any all next iter reversed'.split(' '));
-  const defined = new Set(builtins);
-  lines.forEach((l, idx) => {
-    let m = l.match(/^\s*(?:from\s+\S+\s+import\s+(.+)|import\s+(.+))/); if (m) (m[1]||m[2]).split(',').forEach(x => { const n = x.trim().split(' as ').pop().trim(); if (n && n !== '*') defined.add(n); });
-    m = l.match(/^\s*def\s+(\w+)\s*\(([^)]*)\)/); if (m) { defined.add(m[1]); m[2].split(',').forEach(p => { const n = p.trim().split('=')[0].replace('*','').trim(); if (n) defined.add(n); }); }
-    m = l.match(/^\s*class\s+(\w+)/); if (m) defined.add(m[1]);
-    m = l.match(/^\s*for\s+([\w\s,]+)\s+in\s/); if (m) m[1].split(',').forEach(x => defined.add(x.trim()));
-    m = l.match(/^\s*(\w+)\s*(?:=[^=]|\+=|-=|\*=|\/=)/); if (m) defined.add(m[1]);
-    m = l.match(/^\s*with\s+.+\s+as\s+(\w+)/); if (m) defined.add(m[1]);
-    if (/def\s+\w+\([^)]*=\s*(\[\]|\{\})/.test(l)) out.push({sev:'warn', line: idx+1, msg:'変更可能なデフォルト引数（[] や {}）は呼び出し間で共有されます', fix:'デフォルトを None にして関数内で作り直す'});
-    if (/==\s*None|!=\s*None/.test(l)) out.push({sev:'warn', line: idx+1, msg:'None との比較は == ではなく is / is not が推奨されます', fix:null});
-    if (/^\s*(print|len|sum|list|dict|str|int|type|input|id)\s*=/.test(l)) out.push({sev:'warn', line: idx+1, msg:'組み込み関数名を変数で上書きしています。後でその関数が使えなくなります', fix:null});
-  });
-  // assigned but never read again (possibility only, worded as such)
-  lines.forEach((l, idx) => {
-    const m = l.match(/^(\w+)\s*=[^=]/);
-    if (!m || m[1].startsWith('_')) return;
-    const uses = (code.match(new RegExp('\\b' + m[1] + '\\b', 'g')) || []).length;
-    if (uses <= 1) out.push({sev:'warn', line: idx+1, msg:`変数「${m[1]}」は代入されていますが、他で使われていない可能性があります`, fix:null});
-  });
-  const used = new Set(); let inStr = false;
-  lines.forEach((l, i) => {
-    const stripped = l.replace(/(['"]).*?\1/g, '').replace(/#.*/, '');
-    for (const mm of stripped.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) { if (!defined.has(mm[1]) && !/^(if|elif|while|for|return|and|or|not|in|is)$/.test(mm[1])) out.push({sev:'warn', line:i+1, msg:`「${mm[1]}」は未定義の可能性があります（関数呼び出しとして使われていますが定義が見当たりません）`, fix:null}); }
-  });
-  const seen = new Set(); return out.filter(d => { const k = d.line + d.msg; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 12);
-}
-let diagSeq = 0;
+/* diagnostics: syntax (real Python parser) + conservative AST warnings, computed in the worker.
+   Results carry a sequence number; stale replies are dropped. While the user is still typing
+   on/near the line of an "incomplete input" error, it is shown softly and confirmed after a pause. */
+let diagSeq = 0, lastDiag = null, softTimer = null; const SOFT_MS = 2500;
+function cursorLine(){ if (editor) return editor.getPosition().lineNumber; const ta = $('#editorFallback'); return ta.value.slice(0, ta.selectionStart).split('\n').length; }
 async function runDiagnostics(){
-  const code = editorValue(); if (!code.trim()) { $('#diagList').innerHTML = ''; $('#diagSummary').textContent = ''; return; }
+  if (kernelState !== 'ready') { $('#diagSummary').textContent = kernelState === 'failed' ? '' : '診断: カーネル起動待ち'; return; }
+  const code = isBinary(files[currentFile]) ? '' : editorValue(); const file = currentFile;
+  if (!/\.py$/.test(file)) { lastDiag = null; $('#diagList').innerHTML = ''; $('#diagSummary').textContent = ''; setMarkers([]); return; }
   const seq = ++diagSeq;
   const res = await callWorker({ type:'check', code });
-  if (seq !== diagSeq) return; // a newer edit already superseded this result
+  if (seq !== diagSeq || file !== currentFile || code !== editorValue()) return;  // superseded
+  lastDiag = res; renderDiagnostics(res);
+}
+function setMarkers(items){
+  if (!(editor && window.monaco)) return;
+  const sev = { error: monaco.MarkerSeverity.Error, warn: monaco.MarkerSeverity.Warning, info: monaco.MarkerSeverity.Info, soft: monaco.MarkerSeverity.Hint };
+  monaco.editor.setModelMarkers(editor.getModel(), 'pystudio', items.map(d => ({ severity: sev[d.sev], message: d.msg, startLineNumber: d.line, startColumn: d.col || 1, endLineNumber: d.endLine || d.line, endColumn: Math.max((d.endCol || 200), (d.col || 1) + 1) })));
+}
+function renderDiagnostics(res){
+  clearTimeout(softTimer);
   const items = [];
-  if (res.syntax) items.push({ sev:'error', line: res.syntax.line, msg: `${res.syntax.kind}: ${res.syntax.msg}（${res.syntax.line}行目 ${res.syntax.col}列目）`, fix: null, mistakeHint: true });
-  items.push(...heuristicDiags(code));
-  $('#diagSummary').textContent = items.length ? `診断 ${items.length}件` : '診断: 問題なし（構文OK）';
-  $('#diagList').innerHTML = items.map(d => `<div class="diag-item ${d.sev === 'error' ? 'error' : 'warn'}">${d.sev === 'error' ? '⛔' : '⚠'} ${esc(d.msg)}${d.fix ? `<div class="kv">修正の考え方: ${esc(d.fix)}</div>` : ''}${d.mistakeHint ? `<button onclick="showView('mistakes')">よくある間違いで調べる</button>` : ''}</div>`).join('');
-  if (editor && window.monaco) {
-    const markers = items.map(d => ({ severity: d.sev === 'error' ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning, message: d.msg, startLineNumber: d.line, startColumn: 1, endLineNumber: d.line, endColumn: 200 }));
-    monaco.editor.setModelMarkers(editor.getModel(), 'pystudio', markers);
+  if (res.syntax) {
+    const s = res.syntax, cl = cursorLine();
+    const near = Math.abs(cl - s.line) <= 1 || (res.incomplete && cl >= s.line);
+    const soft = near && Date.now() - lastEditAt < SOFT_MS;
+    if (soft) softTimer = setTimeout(() => renderDiagnostics(res), SOFT_MS - (Date.now() - lastEditAt) + 30);
+    items.push({ sev: soft ? 'soft' : 'error', line: s.line, col: s.col, endLine: s.endLine, endCol: s.endCol, mistake: !soft,
+      msg: soft ? `入力途中のため構文はまだ未完成です（${s.msg}）` : `${s.kind}: ${s.msg}（${s.line}行目 ${s.col}列目）` });
   }
+  for (const w of res.warnings || []) items.push(w);
+  const counts = { error: 0, warn: 0, info: 0 }; items.forEach(d => { if (counts[d.sev] != null) counts[d.sev]++; });
+  $('#diagSummary').textContent = res.syntax && items[0].sev === 'soft' ? '診断: 入力中…' : (items.length ? `診断: エラー ${counts.error}・警告 ${counts.warn}・ヒント ${counts.info}` : '診断: 問題なし（構文OK）');
+  const icon = { error: '⛔', warn: '⚠', info: 'ℹ', soft: '…' };
+  $('#diagList').innerHTML = items.filter(d => d.sev !== 'soft').map(d => `<div class="diag-item ${d.sev}"><button class="linkish" data-goto-line="${d.line}" data-col="${d.col || 1}">${icon[d.sev]} ${d.line}行</button> ${esc(d.msg)}${d.mistake ? ` <button data-view-mistakes="1">よくある間違いで調べる</button>` : ''}</div>`).join('');
+  setMarkers(items);
 }
+$('#diagList').addEventListener('click', e => {
+  const g = e.target.closest('[data-goto-line]'); if (g && editor) { const ln = Number(g.dataset.gotoLine); editor.revealLineInCenter(ln); editor.setPosition({ lineNumber: ln, column: Number(g.dataset.col) }); editor.focus(); }
+  if (e.target.closest('[data-view-mistakes]')) showView('mistakes');
+});
 function renderTabs(){
-  $('#tabBar').innerHTML = Object.keys(files).map(f => `<button class="${f === currentFile ? 'active' : ''}" data-file="${esc(f)}">${esc(f)}</button>`).join('');
-  $('#fileList').innerHTML = Object.keys(files).map(f => `<li class="${f === currentFile ? 'active' : ''}" data-file="${esc(f)}"><span>${esc(f)}</span>${Object.keys(files).length > 1 ? `<button class="del" data-del="${esc(f)}" title="削除">✕</button>` : ''}</li>`).join('');
+  const names = Object.keys(files);
+  $('#tabBar').innerHTML = names.map(f => `<button class="${f === currentFile ? 'active' : ''}" data-file="${esc(f)}" role="tab" aria-selected="${f === currentFile}">${esc(f)}</button>`).join('');
+  $('#fileList').innerHTML = names.map(f => `<li class="${f === currentFile ? 'active' : ''}" data-file="${esc(f)}"><span class="fname" title="${esc(f)}">${esc(f)}</span><span class="facts"><button data-dl="${esc(f)}" title="ダウンロード" aria-label="${esc(f)} をダウンロード">⬇</button><button data-ren="${esc(f)}" title="名前変更" aria-label="${esc(f)} の名前を変更">✎</button>${names.length > 1 ? `<button data-del="${esc(f)}" title="削除" aria-label="${esc(f)} を削除">✕</button>` : ''}</span></li>`).join('');
 }
-function switchFile(f){ if (files[f] == null) return; if (!(typeof files[currentFile] === 'string' && files[currentFile].startsWith('base64:'))) files[currentFile] = editorValue(); currentFile = f; setEditorValue(files[f].startsWith('base64:') ? '# バイナリファイル（編集不可）: ' + f + '\n# Pythonからは通常のファイルとして読み込めます' : files[f]); saveFiles(); renderTabs(); runDiagnostics(); }
+function switchFile(f){
+  if (files[f] == null) return;
+  if (!isBinary(files[currentFile]) && files[currentFile] != null) files[currentFile] = editorValue();
+  currentFile = f; setEditorValue(displayText(f)); updateReadOnly(); saveFiles(); renderTabs(); runDiagnostics();
+}
+function openInStudio(name, code){ files[name] = code; saveFiles(); switchFile(name); showView('studio'); }
 $('#tabBar').addEventListener('click', e => { const b = e.target.closest('[data-file]'); if (b) switchFile(b.dataset.file); });
+let fileRowMode = 'new', renameFrom = null;
+function openFileRow(mode, from){
+  fileRowMode = mode; renameFrom = from || null; const row = $('#newFileRow'); row.classList.remove('hidden');
+  $('#newFileName').value = from || ''; $('#createFileBtn').textContent = mode === 'new' ? '作成' : '変更'; $('#fileRowError').textContent = '';
+  $('#newFileName').focus(); $('#newFileName').select();
+}
 $('#fileList').addEventListener('click', e => {
-  const del = e.target.closest('[data-del]'); if (del) { delete files[del.dataset.del]; if (currentFile === del.dataset.del) currentFile = Object.keys(files)[0]; setEditorValue(files[currentFile]); saveFiles(); renderTabs(); return; }
+  const del = e.target.closest('[data-del]');
+  if (del) { const n = del.dataset.del; if (!confirm(`「${n}」を削除しますか？（元に戻せません）`)) return; delete files[n]; if (currentFile === n) { currentFile = Object.keys(files)[0]; setEditorValue(displayText(currentFile)); updateReadOnly(); } saveFiles(); renderTabs(); runDiagnostics(); return; }
+  const dl = e.target.closest('[data-dl]'); if (dl) { downloadFile(dl.dataset.dl); return; }
+  const ren = e.target.closest('[data-ren]'); if (ren) { openFileRow('rename', ren.dataset.ren); return; }
   const li = e.target.closest('[data-file]'); if (li) switchFile(li.dataset.file);
 });
-$('#addFileBtn').addEventListener('click', () => {
-  const row = $('#newFileRow'); row.classList.toggle('hidden');
-  if (!row.classList.contains('hidden')) $('#newFileName').focus();
-});
-function createNamedFile(){
-  const name = $('#newFileName').value.trim(); if (!name) return;
-  if (files[name] != null) { switchFile(name); return; }
-  files[name] = ''; $('#newFileName').value = ''; $('#newFileRow').classList.add('hidden'); switchFile(name);
-}
-$('#createFileBtn').addEventListener('click', createNamedFile);
-$('#newFileName').addEventListener('keydown', e => { if (e.key === 'Enter') createNamedFile(); });
-function explainError(errText){
-  const rules = [
-    [/IndentationError/, 'インデント（字下げ）が揃っていません。スペース4つで統一し、前の行と深さを確認してください。', 'indent'],
-    [/SyntaxError/, '文法エラーです。コロンや括弧の閉じ忘れが多い原因です。', 'colon'],
-    [/NameError: name '(\w+)'/, '未定義の名前を使っています。タイプミスか、定義より前に使っていないか確認してください。', null],
-    [/TypeError/, '型が合っていません。文字列と数値を混ぜていないか確認してください。', 'str-num'],
-    [/IndexError/, '範囲外の添字です。len() で長さを確認してください。', 'index-range'],
-    [/KeyError/, '辞書に存在しないキーです。.get() の利用も検討してください。', 'dict-key'],
-    [/ModuleNotFoundError|ImportError/, 'モジュールが見つかりません。名前の綴りと、ブラウザ環境で使えるライブラリかを確認してください。', 'import-error'],
-    [/ZeroDivisionError/, '0で割っています。除数が0になるケースを先に分けてください。', null],
-  ];
-  for (const [re, text, mid] of rules) if (re.test(errText)) return { text, mid };
-  return null;
-}
-async function runCurrent(){
-  const code = editorValue(); const btn = $('#runBtn'); btn.disabled = true;
-  const t = performance.now();
-  const res = await runPython(code, { files, stdin: $('#stdinBox').value });
-  btn.disabled = false;
-  $('#runTime').textContent = `（${res.ms} ms）`;
-  let html = '';
-  if (res.stdout) html += esc(res.stdout);
-  if (res.stderr) html += `<span class="cerr">${esc(res.stderr)}</span>`;
-  if (res.error) {
-    html += `<span class="cerr">${esc(res.error)}</span>`;
-    const ex = explainError(res.error);
-    if (ex) html += `\n<span>💡 ${esc(ex.text)}${ex.mid ? ` <a href="#" onclick="__goMistake('${ex.mid}');return false" style="color:#7ee787">よくある間違いで詳しく見る</a>` : ''}</span>`;
+$('#addFileBtn').addEventListener('click', () => { const row = $('#newFileRow'); if (!row.classList.contains('hidden') && fileRowMode === 'new') row.classList.add('hidden'); else openFileRow('new'); });
+function submitFileRow(){
+  const name = $('#newFileName').value.trim(); const err = validFileName(name);
+  if (err) { $('#fileRowError').textContent = err; return; }
+  if (fileRowMode === 'new') {
+    if (files[name] != null) { switchFile(name); }
+    else { files[name] = ''; switchFile(name); }
+  } else if (renameFrom && name !== renameFrom) {
+    if (files[name] != null) { $('#fileRowError').textContent = '同じ名前のファイルがあります'; return; }
+    if (!isBinary(files[renameFrom]) && renameFrom === currentFile) files[renameFrom] = editorValue();
+    const entries = Object.entries(files).map(([k, v]) => k === renameFrom ? [name, v] : [k, v]);
+    files = Object.fromEntries(entries); if (currentFile === renameFrom) currentFile = name; saveFiles(); renderTabs();
   }
-  $('#console').innerHTML = html || '（出力なし）';
-  const img = $('#plotImage');
-  if (res.image) { img.src = 'data:image/png;base64,' + res.image; img.classList.remove('hidden'); } else img.classList.add('hidden');
-  $('#varsView').innerHTML = res.vars && res.vars.length ? res.vars.map(v => `${esc(v.name)}: ${esc(v.type)} = ${esc(v.value)}`).join('<br>') : '（変数なし）';
+  $('#newFileRow').classList.add('hidden'); $('#newFileName').value = '';
+}
+$('#createFileBtn').addEventListener('click', submitFileRow);
+$('#newFileName').addEventListener('keydown', e => { if (e.key === 'Enter') submitFileRow(); if (e.key === 'Escape') $('#newFileRow').classList.add('hidden'); });
+function b64ToBytes(b64){ const bin = atob(b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8; }
+function downloadFile(name){
+  const v = name === currentFile && !isBinary(files[name]) ? editorValue() : files[name];
+  const blob = isBinary(v) ? new Blob([b64ToBytes(v.slice(7))]) : new Blob([v], { type: 'text/plain;charset=utf-8' });
+  downloadBlob(name.split('/').pop(), blob);
+}
+function mergeChanges(ch){
+  if (!ch) return '';
+  const notes = [];
+  for (const c of ch.changed) { files[c.name] = c.content; notes.push(c.name); }
+  for (const n of ch.deleted) if (n !== currentFile && files[n] != null && Object.keys(files).length > 1) delete files[n];
+  if (ch.changed.length || ch.deleted.length) { saveFiles(); renderTabs(); if (ch.changed.some(c => c.name === currentFile)) setEditorValue(displayText(currentFile)); }
+  let msg = notes.length ? `プログラムが作成・更新したファイルをファイル一覧に反映しました: ${notes.join(', ')}` : '';
+  if (ch.tooLarge.length) msg += (msg ? '\n' : '') + `大きすぎるため一覧に保存しなかったファイル（実行中のカーネル内には残っています）: ${ch.tooLarge.map(t => t.name + '（' + Math.round(t.size / 1024) + 'KB）').join(', ')}`;
+  return msg;
+}
+let running = 0;
+function setRunning(d){ running += d; $('#runBtn').disabled = running > 0; $('#runState').textContent = running > 0 ? '実行中…' : ''; $('#stopBtn').disabled = running <= 0; }
+async function runCurrent(){
+  if (running > 0) return;   // one Studio run at a time (button is disabled too)
+  if (!isBinary(files[currentFile])) files[currentFile] = editorValue();
+  saveFiles();
+  if (!/\.py$/.test(currentFile)) { $('#console').textContent = `「${currentFile}」は Python ファイル（.py）ではないため実行できません。`; return; }
+  const code = files[currentFile];
+  const con = $('#console'); con.innerHTML = ''; $('#plotArea').innerHTML = ''; $('#runTime').textContent = '';
+  let streamed = '';
+  setRunning(1);
+  const res = await runPython(code, { files, stdin: $('#stdinBox').value, filename: currentFile }, segs => { streamed += segsHtml(segs); con.innerHTML = streamed; con.scrollTop = con.scrollHeight; });
+  setRunning(-1);
+  $('#runTime').textContent = `（${res.ms} ms）`;
+  const changeMsg = mergeChanges(res.changes);
+  con.innerHTML = outputHtml(res) + (changeMsg ? `\n<span class="cnote">${esc(changeMsg)}</span>` : '');
+  $('#plotArea').innerHTML = imagesHtml(res.images);
+  renderVars(res.vars);
+  if (res.error && res.error.line && editor && window.monaco && res.error.file === currentFile) {
+    monaco.editor.setModelMarkers(editor.getModel(), 'pystudio-run', [{ severity: monaco.MarkerSeverity.Error, message: `${res.error.type}: ${res.error.message}`, startLineNumber: res.error.line, startColumn: 1, endLineNumber: res.error.line, endColumn: 1000 }]);
+  }
   runDiagnostics();
+}
+function renderVars(vars){
+  $('#varsView').innerHTML = vars && vars.length ? `<table class="vars"><tr><th>名前</th><th>型</th><th>値</th></tr>${vars.map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.type)}${v.len != null ? `<span class="meta">（len ${v.len}）</span>` : ''}</td><td><code>${esc(v.value)}</code></td></tr>`).join('')}</table>` : '（変数なし）';
 }
 $('#runBtn').addEventListener('click', runCurrent);
 $('#stopBtn').addEventListener('click', () => {
-  if (confirm('実行を中断します。Workerを再生成するためカーネルの変数状態は失われます。よろしいですか？')) {
-    flushPending('実行が中断されました'); newWorker(); $('#console').textContent = '中断しました（カーネル再生成）。'; $('#runBtn').disabled = false;
+  if (confirm('実行を中断します。Python カーネルを作り直すため、変数などの状態は失われます（ファイルは残ります）。よろしいですか？')) {
+    newWorker(); nbExecCount = 0; $('#varsView').textContent = '（中断によりカーネルを再起動しました）';
   }
 });
-$('#resetKernelBtn').addEventListener('click', async () => { await callWorker({type:'reset'}); $('#varsView').textContent = 'リセット済み'; });
-$$('.pkg-btns button').forEach(b => b.addEventListener('click', async () => { $('#kernelStatus').textContent = b.dataset.pkg + ' を読み込み中…'; worker.postMessage({type:'load', packages:[b.dataset.pkg]}); }));
-$('#sampleCsvBtn').addEventListener('click', () => { files['sales.csv'] = 'month,sales\n1,120\n2,150\n3,90\n4,200\n'; saveFiles(); renderTabs(); alert('sales.csv を作成しました。pandasで pd.read_csv("sales.csv") と試せます。'); });
+$('#resetKernelBtn').addEventListener('click', async () => { await enqueue(() => callWorker({ type:'reset' })); nbExecCount = 0; renderVars([]); setStatus('カーネルをリセットしました（変数・読み込んだ自作モジュールを消去）'); });
+$$('.pkg-btns button').forEach(b => b.addEventListener('click', () => { setStatus(b.dataset.pkg + ' を読み込み中…'); enqueue(() => callWorker({ type:'load', packages:[b.dataset.pkg] })); }));
+$('#sampleCsvBtn').addEventListener('click', () => { files['sales.csv'] = 'month,sales\n1,120\n2,150\n3,90\n4,200\n'; saveFiles(); renderTabs(); setStatus('sales.csv を作成しました。pd.read_csv("sales.csv") で読み込めます'); });
 $('#fileUpload').addEventListener('change', async e => {
-  for (const f of e.target.files) {
-    if (/\.(xlsx|png|jpe?g|gif|webp|ico)$/i.test(f.name)) {
-      const buf = new Uint8Array(await f.arrayBuffer());
-      let bin = ''; buf.forEach(b => { bin += String.fromCharCode(b); });
-      files[f.name] = 'base64:' + btoa(bin);
-    } else {
-      files[f.name] = await f.text();
-    }
+  const list = [...e.target.files]; if (!list.length) return;
+  for (const f of list) {
+    const err = validFileName(f.name); if (err) { alert(`「${f.name}」は取り込めません: ${err}`); continue; }
+    if (files[f.name] != null && !confirm(`「${f.name}」は既にあります。上書きしますか？`)) continue;
+    const buf = new Uint8Array(await f.arrayBuffer());
+    let text = null;
+    // keep bytes exactly: UTF-8 (without BOM) is stored as text, anything else as binary
+    try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(buf); if (text.charCodeAt(0) === 0xFEFF) text = null; } catch(err2) { text = null; }
+    if (text === null) { let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000)); files[f.name] = 'base64:' + btoa(bin); }
+    else files[f.name] = text;
   }
-  saveFiles(); renderTabs(); switchFile(e.target.files[0].name);
+  e.target.value = '';
+  saveFiles(); renderTabs(); if (files[list[0].name] != null) switchFile(list[0].name);
 });
-$('#fontSize').addEventListener('change', e => { if (editor) editor.updateOptions({ fontSize: Number(e.target.value) }); });
+$('#fontSize').addEventListener('change', e => { const v = Math.min(22, Math.max(11, Number(e.target.value) || 14)); store.set('fontSize', v); if (editor) editor.updateOptions({ fontSize: v }); });
+$('#fontSize').value = store.get('fontSize', 14);
+
 /* ----- side panel: reference & glossary always visible ----- */
 let sideTab = 'ref';
 function renderSideList(){
   const q = ($('#sideSearch').value || '').toLowerCase();
-  $('#sideTabRef').classList.toggle('active', sideTab === 'ref');
-  $('#sideTabGloss').classList.toggle('active', sideTab === 'gloss');
+  $('#sideTabRef').classList.toggle('active', sideTab === 'ref'); $('#sideTabRef').setAttribute('aria-selected', sideTab === 'ref');
+  $('#sideTabGloss').classList.toggle('active', sideTab === 'gloss'); $('#sideTabGloss').setAttribute('aria-selected', sideTab === 'gloss');
   if (sideTab === 'ref') {
     const list = REFERENCE.filter(r => !q || (r.name + r.summary + r.category + r.id).toLowerCase().includes(q))
       .sort((a, b) => (IMP[a.importance] - IMP[b.importance]) || a.name.localeCompare(b.name));
-    $('#sideList').innerHTML = list.map(r => `<div class="side-item" onclick="__sideRef('${r.id}')"><span>${esc(r.name)}</span><span class="meta">${esc(r.importance)}・${esc(r.category)}</span></div>`).join('') || '<div class="side-item">該当なし</div>';
+    $('#sideList').innerHTML = list.map(r => `<button class="side-item" onclick="__sideRef('${r.id}')"><span>${esc(r.name)}</span><span class="meta">${esc(r.importance)}・${esc(r.category)}</span></button>`).join('') || '<div class="side-item">該当なし</div>';
   } else {
     const list = GLOSSARY.filter(g => !q || (g.ja + g.en + g.def).toLowerCase().includes(q))
       .sort((a, b) => (IMP[a.importance] - IMP[b.importance]) || a.ja.localeCompare(b.ja));
-    $('#sideList').innerHTML = list.map(g => `<div class="side-item" onclick="__sideTerm('${g.id}')"><span>${esc(g.ja)}</span><span class="meta">${esc(g.importance)}・${esc(g.en)}</span></div>`).join('') || '<div class="side-item">該当なし</div>';
+    $('#sideList').innerHTML = list.map(g => `<button class="side-item" onclick="__sideTerm('${g.id}')"><span>${esc(g.ja)}</span><span class="meta">${esc(g.importance)}・${esc(g.en)}</span></button>`).join('') || '<div class="side-item">該当なし</div>';
   }
 }
 $('#sideTabRef').addEventListener('click', () => { sideTab = 'ref'; renderSideList(); });
@@ -264,15 +374,17 @@ window.__sideRef = id => { const r = refById[id]; if (r) { sideTab = 'ref'; rend
 window.__sideTerm = id => { const g = termById[id]; if (g) { sideTab = 'gloss'; renderSideList(); showSideTerm(g); } };
 
 function lookupWordAtCursor(){
-  let word = '';
-  if (editor) { const pos = editor.getPosition(); const w = editor.getModel().getWordAtPosition(pos); word = w ? w.word : ''; }
-  else { const ta = $('#editorFallback'); const s = ta.selectionStart; const m = ta.value.slice(0, s).match(/[\w.]+$/); word = m ? m[0] : ''; }
+  let word = '', dotted = '';
+  if (editor) {
+    const pos = editor.getPosition(); const model = editor.getModel(); const w = model.getWordAtPosition(pos); word = w ? w.word : '';
+    if (w) { const line = model.getLineContent(pos.lineNumber); const m = line.slice(0, w.endColumn - 1).match(/[\w.]+$/); dotted = m ? m[0] : word; }
+  } else { const ta = $('#editorFallback'); const s = ta.selectionStart; const m = ta.value.slice(0, s).match(/[\w.]+$/); dotted = m ? m[0] : ''; word = dotted.split('.').pop(); }
   if (!word) { $('#sideDetail').textContent = '単語の上にカーソルを置いてください。'; return; }
-  const cand = [word, word.split('.').pop()];
-  for (const c of cand) {
-    const r = REFERENCE.find(x => x.id === c || x.name.replace(/\(\)$/,'') === c || x.id.endsWith('.' + c));
+  const last2 = dotted.split('.').slice(-2).join('.');
+  for (const c of [dotted, last2, word]) {
+    const r = REFERENCE.find(x => x.id === c || x.name.replace(/\(\)$/,'') === c) || (c === word ? REFERENCE.find(x => x.id.endsWith('.' + c)) : null);
     if (r) { sideTab = 'ref'; renderSideList(); return showSideRef(r); }
-    const g = GLOSSARY.find(x => x.en === c || x.id === c);
+    const g = GLOSSARY.find(x => x.en.toLowerCase() === c.toLowerCase() || x.id === c);
     if (g) { sideTab = 'gloss'; renderSideList(); return showSideTerm(g); }
   }
   $('#sideDetail').innerHTML = `「${esc(word)}」のリファレンス項目は見つかりませんでした。全体検索も試してください。`;
@@ -311,7 +423,7 @@ function linkTerms(text){
 }
 let selectedTpl = null;
 function renderTplList(){
-  $('#tplList').innerHTML = TEMPLATES.map(t => `<li class="${selectedTpl === t.id ? 'active' : ''}" onclick="__tpl('${t.id}')">${esc(t.title)} <span class="meta">${esc(t.level)}</span></li>`).join('');
+  $('#tplList').innerHTML = TEMPLATES.map(t => `<li class="${selectedTpl === t.id ? 'active' : ''}"><button class="tpl-item" onclick="__tpl('${t.id}')">${esc(t.title)} <span class="meta">${esc(t.level)}</span></button></li>`).join('');
 }
 window.__tpl = id => {
   selectedTpl = id; renderTplList();
@@ -329,59 +441,76 @@ window.__tpl = id => {
 };
 function tplFile(t){ if (files[t.file] == null) files[t.file] = t.code; switchFile(t.file); }
 window.__tplOpen = id => { const t = TEMPLATES.find(x => x.id === id); if (t) tplFile(t); };
-window.__tplReset = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { files[t.file] = t.code; switchFile(t.file); } };
-window.__tplRun = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { tplFile(t); setTimeout(runCurrent, 350); } };
-renderTplList();
-document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && $('#view-studio').classList.contains('active') && !editor) runCurrent(); });
+window.__tplReset = id => { const t = TEMPLATES.find(x => x.id === id); if (t && confirm('「' + t.file + '」を元のコードに戻します（編集内容は失われます）。よろしいですか？')) { files[t.file] = t.code; switchFile(t.file); } };
+window.__tplRun = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { tplFile(t); runCurrent(); } };
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && $('#view-studio').classList.contains('active') && !editor) { e.preventDefault(); runCurrent(); } });
 
 /* ================= Notebook ================= */
-function renderNotebook(){
-  $('#nbCells').innerHTML = nbCells.map((c, i) => `<div class="nb-cell">
-    <div class="toolbar"><span class="badge">${c.type === 'code' ? 'コード' : 'Markdown'}</span>
-      <button data-nb="up" data-i="${i}">↑</button><button data-nb="down" data-i="${i}">↓</button>
+let nbExecCount = 0;
+function cellOutHtml(c){ if (!c.output) return ''; return outputHtml(c.output, { keepEmpty: true }) + imagesHtml(c.output.images); }
+function renderNotebook(focusIdx){
+  $('#nbCells').innerHTML = nbCells.map((c, i) => `<div class="nb-cell ${c.type}">
+    <div class="toolbar"><span class="badge">${c.type === 'code' ? `コード [${c.count ?? ' '}]` : c.type === 'raw' ? 'Raw' : 'Markdown'}</span>
+      <button data-nb="up" data-i="${i}" aria-label="上へ移動">↑</button><button data-nb="down" data-i="${i}" aria-label="下へ移動">↓</button>
       ${c.type === 'code' ? `<button data-nb="run" data-i="${i}" class="primary">▶ 実行</button>` : ''}
       <button data-nb="del" data-i="${i}">削除</button></div>
-    <textarea data-cell="${i}" rows="${c.type === 'code' ? 5 : 3}">${esc(c.source)}</textarea>
-    ${c.type === 'markdown' ? `<div class="nb-md">${esc(c.source).replace(/\n/g, '<br>')}</div>` : ''}
-    <div class="nb-out" id="nbOut${i}">${esc(c.out || '')}</div></div>`).join('');
-  store.set('notebook', nbCells);
+    <textarea data-cell="${i}" rows="${c.type === 'code' ? Math.max(3, Math.min(20, c.source.split('\n').length + 1)) : 3}" spellcheck="false" aria-label="セル ${i + 1}">${esc(c.source)}</textarea>
+    ${c.type === 'markdown' ? `<div class="nb-md">${renderMarkdown(c.source)}</div>` : ''}
+    ${c.type === 'code' ? `<div class="nb-out" id="nbOut${i}">${cellOutHtml(c)}</div>` : ''}</div>`).join('');
+  saveNotebook();
+  if (focusIdx != null) { const t = $(`[data-cell="${focusIdx}"]`); if (t) t.focus(); }
 }
-$('#nbCells').addEventListener('input', e => { const i = e.target.dataset.cell; if (i != null) { nbCells[i].source = e.target.value; store.set('notebook', nbCells); } });
+$('#nbCells').addEventListener('input', e => {
+  const i = e.target.dataset.cell; if (i == null) return;
+  nbCells[i].source = e.target.value; saveNotebook();
+  if (nbCells[i].type === 'markdown') { const md = e.target.parentElement.querySelector('.nb-md'); if (md) md.innerHTML = renderMarkdown(e.target.value); }
+});
+$('#nbCells').addEventListener('keydown', e => { const i = e.target.dataset.cell; if (i != null && (e.ctrlKey || e.metaKey || e.shiftKey) && e.key === 'Enter' && nbCells[i].type === 'code') { e.preventDefault(); runCell(Number(i)); } });
+async function runCell(i){
+  const c = nbCells[i]; const out = $('#nbOut' + i); if (out) out.innerHTML = '<span class="cnote">実行中…</span>';
+  const r = await runPython(c.source, { files, stdin: $('#stdinBox').value, wantLast: true, filename: `<cell ${i + 1}>` });
+  const changeMsg = mergeChanges(r.changes);
+  c.count = r.error && r.error.type === 'Interrupted' ? null : ++nbExecCount;
+  c.output = { segs: r.segs, result: r.result, images: r.images, error: r.error, note: [r.note, changeMsg].filter(Boolean).join('\n') || null };
+  renderNotebook(); return r;
+}
 $('#nbCells').addEventListener('click', async e => {
   const b = e.target.closest('[data-nb]'); if (!b) return; const i = Number(b.dataset.i);
-  if (b.dataset.nb === 'del') nbCells.splice(i, 1);
+  if (b.dataset.nb === 'del') { if (nbCells[i].source.trim() && !confirm('このセルを削除しますか？')) return; nbCells.splice(i, 1); }
   if (b.dataset.nb === 'up' && i > 0) [nbCells[i-1], nbCells[i]] = [nbCells[i], nbCells[i-1]];
   if (b.dataset.nb === 'down' && i < nbCells.length - 1) [nbCells[i+1], nbCells[i]] = [nbCells[i], nbCells[i+1]];
-  if (b.dataset.nb === 'run') { const r = await runPython(nbCells[i].source, { stdin: '' }); nbCells[i].out = (r.stdout || '') + (r.error ? '\n' + r.error : ''); }
+  if (b.dataset.nb === 'run') { await runCell(i); return; }
   renderNotebook();
 });
-$('#nbAddCode').addEventListener('click', () => { nbCells.push({type:'code', source:''}); renderNotebook(); });
-$('#nbAddMd').addEventListener('click', () => { nbCells.push({type:'markdown', source:''}); renderNotebook(); });
+$('#nbAddCode').addEventListener('click', () => { nbCells.push({type:'code', source:''}); renderNotebook(nbCells.length - 1); });
+$('#nbAddMd').addEventListener('click', () => { nbCells.push({type:'markdown', source:''}); renderNotebook(nbCells.length - 1); });
 $('#nbRunAll').addEventListener('click', async () => {
-  for (let i = 0; i < nbCells.length; i++) if (nbCells[i].type === 'code') { const r = await runPython(nbCells[i].source, { stdin: '' }); nbCells[i].out = (r.stdout || '') + (r.error ? '\n' + r.error : ''); renderNotebook(); }
+  for (let i = 0; i < nbCells.length; i++) if (nbCells[i].type === 'code') { const r = await runCell(i); if (r.error) { banner(`セル ${i + 1} でエラーが発生したため、全セル実行を止めました。`, 'warn'); break; } }
 });
-$('#nbExport').addEventListener('click', () => {
-  const nb = { cells: nbCells.map(c => ({ cell_type: c.type === 'code' ? 'code' : 'markdown', source: c.source.split('\n').map(s => s + '\n'), metadata: {}, ...(c.type === 'code' ? { outputs: [], execution_count: null } : {}) })), metadata: { kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' }, language_info: { name: 'python' } }, nbformat: 4, nbformat_minor: 5 };
-  download('notebook.ipynb', JSON.stringify(nb, null, 2), 'application/json');
-});
+$('#nbExport').addEventListener('click', () => downloadBlob('notebook.ipynb', new Blob([JSON.stringify(nbToIpynb(nbCells, nbMeta), null, 1)], { type: 'application/x-ipynb+json' })));
 $('#nbImport').addEventListener('change', async e => {
-  const nb = JSON.parse(await e.target.files[0].text());
-  nbCells = nb.cells.map(c => ({ type: c.cell_type === 'code' ? 'code' : 'markdown', source: Array.isArray(c.source) ? c.source.join('') : (c.source || '') }));
-  renderNotebook();
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const { cells, metadata } = ipynbToNb(JSON.parse(await f.text()));
+    if (nbCells.some(c => c.source.trim()) && !confirm(`現在の Notebook（${nbCells.length}セル）を「${f.name}」（${cells.length}セル）で置き換えますか？`)) return;
+    nbCells = cells; nbMeta = metadata; nbExecCount = 0; renderNotebook();
+  } catch(err){ alert('.ipynb を読み込めませんでした: ' + err.message); }
 });
-function download(name, text, type = 'text/plain'){
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+function downloadBlob(name, blob){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
 /* ================= Lessons ================= */
 function renderLessonList(){
   const q = ($('#lessonFilter').value || '').toLowerCase();
-  $('#lessonList').innerHTML = LESSONS.filter(l => !q || (l.title + l.body).toLowerCase().includes(q)).map(l =>
-    `<div class="item" onclick="__goLesson('${l.id}')"><b>${esc(l.title)}</b> ${progress.lessonsDone.includes(l.id) ? '<span class="badge ok">学習済</span>' : ''}<div class="meta">${esc(l.level)}・${esc(l.category)}</div></div>`).join('');
+  $('#lessonList').innerHTML = LESSONS.filter(l => !q || (l.title + l.body + l.category).toLowerCase().includes(q)).map(l =>
+    `<button class="item" onclick="__goLesson('${l.id}')"><b>${esc(l.title)}</b> ${progress.lessonsDone.includes(l.id) ? '<span class="badge ok">学習済</span>' : ''}<div class="meta">${esc(l.level)}・${esc(l.category)}</div></button>`).join('');
 }
 $('#lessonFilter').addEventListener('input', renderLessonList);
+function relatedQuizzes(lessonId){ return QUIZZES.filter(z => z.lesson === lessonId); }
 function selectLesson(id){
   const l = lessonById[id]; if (!l) return; renderLessonList();
+  const qs = relatedQuizzes(id);
   $('#lessonDetail').innerHTML = `<h2>${esc(l.title)}</h2><div class="kv">${esc(l.level)}・${esc(l.category)}</div>
     <p><b>学習目標:</b> ${esc(l.goal)}</p>
     <p style="white-space:pre-wrap">${esc(l.body)}</p>
@@ -390,36 +519,24 @@ function selectLesson(id){
     <div id="lessonOut"></div>
     <p><b>期待される出力</b></p><pre>${esc(l.expected)}</pre>
     <p>⚠ <b>よくある間違い:</b> ${esc(l.pitfalls)}</p>
-    <div>${termChips(l.terms)} ${refChips(l.refs)}</div>`;
+    <div>${termChips(l.terms)} ${refChips(l.refs)}</div>
+    ${qs.length ? `<p><b>このレッスンの確認問題（${qs.length}問）</b></p><div class="toolbar"><button data-lesson-quiz="${l.id}">▶ 確認問題を解く</button></div>` : ''}`;
 }
+const normOut = s => String(s ?? '').replace(/\r\n/g, '\n').split('\n').map(x => x.replace(/\s+$/, '')).join('\n').replace(/\n+$/, '');
 $('#lessonDetail').addEventListener('click', async e => {
-  const run = e.target.closest('[data-lesson-run]'); const st = e.target.closest('[data-lesson-studio]'); const dn = e.target.closest('[data-lesson-done]');
-  if (run) { const l = lessonById[run.dataset.lessonRun]; const r = await runPython(l.code, { stdin: '' }); $('#lessonOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error ? '\n' + r.error : ''))}</pre><p class="kv">${r.error ? 'エラーになりました' : (r.stdout.replace(/\n$/,'') === l.expected.replace(/\n$/,'') ? '✅ 期待出力と一致' : '期待出力と異なる場合はコードと見比べてください')}</p>`; }
-  if (st) { const l = lessonById[st.dataset.lessonStudio]; files['lesson_' + l.id + '.py'] = l.code; switchFile('lesson_' + l.id + '.py'); showView('studio'); }
+  const run = e.target.closest('[data-lesson-run]'), st = e.target.closest('[data-lesson-studio]'), dn = e.target.closest('[data-lesson-done]'), qz = e.target.closest('[data-lesson-quiz]');
+  if (run) {
+    const l = lessonById[run.dataset.lessonRun]; $('#lessonOut').innerHTML = '<p class="kv">実行中…（初回はPythonの起動に時間がかかります）</p>';
+    const r = await runPython(l.code, { isolated: true, filename: `<lesson ${l.id}>` });
+    const out = (r.segs || []).filter(s => s.s === 'out').map(s => s.t).join('');
+    $('#lessonOut').innerHTML = `<pre class="console">${outputHtml(r)}</pre>${imagesHtml(r.images)}<p class="kv">${r.error ? 'エラーになりました' : (normOut(out) === normOut(l.expected) ? '✅ 期待出力と一致' : '⚠ 期待出力と異なります（コードを変更した場合や環境差の可能性があります）')}</p>`;
+  }
+  if (st) { const l = lessonById[st.dataset.lessonStudio]; openInStudio('lesson_' + l.id.replace(/\W/g, '_') + '.py', l.code); }
   if (dn) { const id = dn.dataset.lessonDone; progress.lessonsDone = progress.lessonsDone.includes(id) ? progress.lessonsDone.filter(x => x !== id) : [...progress.lessonsDone, id]; saveProgress(); selectLesson(id); }
+  if (qz) { showView('quiz'); setQmode('choice'); quizQueue = shuffled(relatedQuizzes(qz.dataset.lessonQuiz)).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice(); }
 });
 
 /* ================= Quiz ================= */
-const FILLS = [
-  { q:'リストの長さを求めるコード: print(___(items))', options:['len','count','size','length'], answer:0, lesson:'lists', explain:'要素数は len() で求めます。count はメソッド名、size/length はPythonの組み込みではありません。' },
-  { q:'辞書でキーが無いときに None を返す: value = d.___("key")', options:['get','find','search','fetch'], answer:0, lesson:'dict-operations', explain:'dict.get はキーが無ければ None（または指定した既定値）を返します。' },
-  { q:'0から4まで繰り返す: for i in ___(5):', options:['range','loop','count','seq'], answer:0, lesson:'loops', explain:'range(5) が 0,1,2,3,4 を生成します。' },
-  { q:'文字列を分割する: parts = text.___(",")', options:['split','cut','divide','parse'], answer:0, lesson:'string-methods', explain:'str.split は区切りで分割してリストを返します。' },
-  { q:'例外を捕まえる: ___ ValueError:', options:['except','catch','handle','error'], answer:0, lesson:'exceptions', explain:'Pythonの例外捕捉は except です。catch は他の言語の書き方です。' },
-  { q:'ファイルを開く: ___ open("a.txt") as f:', options:['with','using','open','as'], answer:0, lesson:'context-manager', explain:'with文で開くと自動で閉じられます。' },
-];
-const CODING = [
-  { title:'合計と平均', desc:'リスト numbers の合計と平均を「合計: X」「平均: Y」の形式で表示してください', starter:'numbers = [10, 20, 30, 40]\n# ここにコードを書く\n', test:'assert True', expect:'合計: 100\n平均: 25.0', hint:'sum() と len() を使います', lesson:'lists' },
-  { title:'偶数だけ抽出', desc:'1から10までの偶数だけをリストにして表示してください', starter:'# 内包表記がおすすめです\n', test:'', expect:'[2, 4, 6, 8, 10]', hint:'[x for x in range(1, 11) if x % 2 == 0]', lesson:'comprehensions' },
-  { title:'文字数カウント', desc:'文字列 "banana" の各文字の出現回数を辞書で表示してください', starter:'s = "banana"\ncounts = {}\n# ここにコードを書く\nprint(counts)\n', test:'', expect:"{'b': 1, 'a': 3, 'n': 2}", hint:'for文で1文字ずつ数え、.get() を使うと簡潔です', lesson:'dict-operations' },
-  { title:'FizzBuzz（1〜15）', desc:'1から15まで、3の倍数はFizz、5の倍数はBuzz、両方はFizzBuzz、それ以外は数字を表示（1行に1つ）', starter:'', test:'', expect:'1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz', hint:'% 演算子で余りを見ます。両方の条件を先に判定します', lesson:'conditionals' },
-];
-const BUGS = [
-  { title:'= と == の混同', bad:'x = 5\nif x = 5:\n    print("5です")\n', expect:'5です', hint:'比較には == を使います', lesson:'conditionals' },
-  { title:'コロンの付け忘れ', bad:'for i in range(3)\n    print(i)\n', expect:'0\n1\n2', hint:'for文の末尾に : が必要です', lesson:'loops' },
-  { title:'文字列と数値の混同', bad:'age = "20"\nprint(age + 5)\n', expect:'25', hint:'int() で数値に変換します', lesson:'variables-types' },
-  { title:'インデントミス', bad:'if True:\nprint("ok")\n', expect:'ok', hint:'if の中身は字下げします', lesson:'conditionals' },
-];
 let qmode = 'choice', quizQueue = [], quizIdx = 0, quizRight = 0, optShuffle = store.get('optShuffle', true);
 function shuffled(arr){ const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function withShuffledOptions(z){
@@ -427,104 +544,104 @@ function withShuffledOptions(z){
   const order = shuffled(z.options.map((_, i) => i));
   return { ...z, options: order.map(i => z.options[i]), answer: order.indexOf(z.answer) };
 }
-function bmKey(z){ return qmode === 'choice' ? 'quiz:' + (z.id || z.question) : 'fill:' + z.q; }
-function bmButton(z){
-  const on = progress.bookmarks.includes(bmKey(z));
-  return `<button data-bm="1" title="ブックマーク">${on ? '★ ブックマーク中' : '☆ ブックマーク'}</button>`;
+const qkey = z => z.question != null ? 'quiz:' + z.id : 'fill:' + z.id;
+function bmButton(key){ const on = progress.bookmarks.includes(key); return `<button data-bmkey="${esc(key)}" aria-pressed="${on}">${on ? '★ ブックマーク中' : '☆ ブックマーク'}</button>`; }
+function recordQuiz(key, ok){ progress.history.push({ t: new Date().toISOString(), key, ok }); if (progress.history.length > 2000) progress.history = progress.history.slice(-2000); if (!ok && !progress.wrong.includes(key)) progress.wrong.push(key); if (ok) progress.wrong = progress.wrong.filter(x => x !== key); saveProgress(); }
+function labelOf(key){
+  const [kind, ...rest] = key.split(':'); const id = rest.join(':');
+  if (kind === 'quiz') { const z = QUIZZES.find(x => x.id === id); return z ? '四択: ' + z.question.slice(0, 36) + (z.code ? '（' + z.code.split('\n')[0].slice(0, 24) + '）' : '') : key; }
+  if (kind === 'fill') { const z = FILLS.find(x => x.id === id); return z ? '穴埋め: ' + z.q : key; }
+  if (kind === 'code') { const c = CODING.find(x => x.id === id); return c ? 'コーディング: ' + c.title : key; }
+  if (kind === 'bug') { const c = BUGS.find(x => x.id === id); return c ? 'バグ修正: ' + c.title : key; }
+  return key;
 }
-function recordQuiz(label, ok){ progress.history.push({ t: new Date().toISOString(), label, ok }); if (!ok && !progress.wrong.includes(label)) progress.wrong.push(label); if (ok) progress.wrong = progress.wrong.filter(x => x !== label); saveProgress(); }
+function setQmode(m){ qmode = m; $$('.qmode').forEach(x => { x.classList.toggle('active', x.dataset.qmode === m); x.setAttribute('aria-selected', x.dataset.qmode === m); }); }
 function startQuiz(){
-  const area = $('#quizArea');
-  if (qmode === 'choice') {
-    quizQueue = shuffled(QUIZZES).slice(0, 10).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice();
-  } else if (qmode === 'fill') {
-    quizQueue = shuffled(FILLS).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showFill();
-  } else if (qmode === 'code') {
-    area.innerHTML = CODING.map((c, i) => `<div class="item" onclick="__codeTask(${i})"><b>${esc(c.title)}</b><div class="meta">${esc(c.desc)}</div></div>`).join('') || '';
-  } else {
-    area.innerHTML = BUGS.map((c, i) => `<div class="item" onclick="__bugTask(${i})"><b>${esc(c.title)}</b><div class="meta">バグを直して実行してください</div></div>`).join('');
-  }
+  const area = $('#quizArea'); $('#quizScore').textContent = '';
+  if (qmode === 'choice') { quizQueue = shuffled(QUIZZES).slice(0, 10).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice(); }
+  else if (qmode === 'fill') { quizQueue = shuffled(FILLS).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice(); }
+  else if (qmode === 'code') area.innerHTML = CODING.map(c => `<button class="item" onclick="__codeTask('${c.id}')"><b>${esc(c.title)}</b> ${progress.wrong.includes('code:' + c.id) ? '<span class="badge hot">要復習</span>' : ''}<div class="meta">${esc(c.desc)}</div></button>`).join('');
+  else area.innerHTML = BUGS.map(c => `<button class="item" onclick="__bugTask('${c.id}')"><b>${esc(c.title)}</b> ${progress.wrong.includes('bug:' + c.id) ? '<span class="badge hot">要復習</span>' : ''}<div class="meta">バグを直して実行してください</div></button>`).join('');
 }
 function showChoice(){
-  const z = quizQueue[quizIdx]; if (!z) { $('#quizArea').innerHTML = `<div class="explain">終了: ${quizRight} / ${quizQueue.length} 正解</div>`; return; }
+  const z = quizQueue[quizIdx];
+  if (!z) { $('#quizArea').innerHTML = `<div class="explain">終了: ${quizRight} / ${quizQueue.length} 正解</div><div class="toolbar"><button class="primary" onclick="__restartQuiz()">もう一度</button>${progress.wrong.length ? '<button onclick="__reviewWrong()">間違えた問題を復習</button>' : ''}</div>`; $('#quizScore').textContent = ''; return; }
   $('#quizScore').textContent = `${quizIdx + 1} / ${quizQueue.length}　正解 ${quizRight}`;
-  $('#quizArea').innerHTML = `<p><span class="badge">${esc(z.category)}</span><span class="badge">${esc(z.level)}</span> ${bmButton(z)}</p><p><b>${esc(z.question)}</b></p>
-  ${z.code ? `<pre class="code">${esc(z.code)}</pre>` : ''}
-  ${z.options.map((o, i) => `<button class="opt" data-opt="${i}">${esc(o)}</button>`).join('')}<div id="qExplain"></div>`;
+  const isFill = z.question == null;
+  $('#quizArea').innerHTML = `<p>${isFill ? '<span class="badge">穴埋め</span>' : `<span class="badge">${esc(z.category)}</span><span class="badge">${esc(z.level)}</span>`} ${bmButton(qkey(z))}</p>
+  ${isFill ? `<p><b>空欄 ___ に入るものを選んでください</b></p><pre class="code">${esc(z.q)}</pre>` : `<p><b>${esc(z.question)}</b></p>${z.code ? `<pre class="code">${esc(z.code)}</pre>` : ''}`}
+  <div role="group" aria-label="選択肢">${z.options.map((o, i) => `<button class="opt" data-opt="${i}"><span class="optno">${'ABCD'[i]}</span> ${esc(o)}</button>`).join('')}</div><div id="qExplain" aria-live="polite"></div>`;
 }
-function showFill(){
-  const z = quizQueue[quizIdx]; if (!z) { $('#quizArea').innerHTML = `<div class="explain">終了: ${quizRight} / ${quizQueue.length} 正解</div>`; return; }
-  $('#quizScore').textContent = `${quizIdx + 1} / ${quizQueue.length}　正解 ${quizRight}`;
-  $('#quizArea').innerHTML = `<p><b>穴埋め</b> ${bmButton(z)}</p><pre class="code">${esc(z.q)}</pre>
-  ${z.options.map((o, i) => `<button class="opt" data-opt="${i}">${esc(o)}</button>`).join('')}<div id="qExplain"></div>`;
-}
-$('#quizArea').addEventListener('click', async e => {
+window.__restartQuiz = () => startQuiz();
+$('#quizArea').addEventListener('click', e => {
   const bk = e.target.closest('[data-bmkey]');
-  if (bk) { const k = bk.dataset.bmkey; bookmark(k.split(':')[0], k.slice(k.indexOf(':') + 1)); bk.textContent = progress.bookmarks.includes(k) ? '★ ブックマーク中' : '☆ ブックマーク'; return; }
-  const bm = e.target.closest('[data-bm]');
-  if (bm) { const z = quizQueue[quizIdx]; bookmark(bmKey(z).split(':')[0], bmKey(z).slice(bmKey(z).indexOf(':') + 1)); bm.textContent = progress.bookmarks.includes(bmKey(z)) ? '★ ブックマーク中' : '☆ ブックマーク'; return; }
-  const b = e.target.closest('[data-opt]'); if (!b) return;
+  if (bk) { toggleBookmark(bk.dataset.bmkey); const on = progress.bookmarks.includes(bk.dataset.bmkey); bk.textContent = on ? '★ ブックマーク中' : '☆ ブックマーク'; bk.setAttribute('aria-pressed', on); return; }
+  const b = e.target.closest('[data-opt]'); if (!b || b.disabled) return;
   const z = quizQueue[quizIdx]; const pick = Number(b.dataset.opt); const ok = pick === z.answer;
   if (ok) quizRight++;
-  recordQuiz((qmode === 'choice' ? z.id || z.question : z.q), ok);
+  recordQuiz(qkey(z), ok);
   $$('#quizArea .opt').forEach((o, i) => { o.disabled = true; if (i === z.answer) o.classList.add('correct'); else if (i === pick) o.classList.add('wrong'); });
   const lessonBtn = (!ok && z.lesson && lessonById[z.lesson]) ? `<button onclick="__goLesson('${z.lesson}')">📖 関連レッスン「${esc(lessonById[z.lesson].title)}」で復習</button> ` : '';
-  $('#qExplain').innerHTML = `<div class="explain">${ok ? '✅ 正解' : '❌ 不正解'}<br>${esc(z.explanation || z.explain)}</div>${lessonBtn}<button class="primary" id="qNext">次の問題</button>`;
-  $('#qNext').addEventListener('click', () => { quizIdx++; qmode === 'choice' ? showChoice() : showFill(); });
-  if (e.target.closest('[data-run-code]')) return;
+  const tryBtn = z.code ? `<button data-try-code="1">Studioで試す</button> ` : '';
+  $('#qExplain').innerHTML = `<div class="explain">${ok ? '✅ 正解' : '❌ 不正解（正解は ' + 'ABCD'[z.answer] + '）'}<br>${esc(z.explanation || z.explain)}</div><div class="toolbar">${lessonBtn}${tryBtn}<button class="primary" id="qNext">次の問題</button></div>`;
+  $('#qNext').addEventListener('click', () => { quizIdx++; showChoice(); });
+  $('#qNext').focus();
 });
-window.__codeTask = i => {
-  const c = CODING[i];
-  $('#quizArea').innerHTML = `<h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p><p class="kv">ヒント: ${esc(c.hint)}</p>
-  <div class="toolbar"><button data-bmkey="code:${esc(c.title)}">${progress.bookmarks.includes('code:' + c.title) ? '★ ブックマーク中' : '☆ ブックマーク'}</button></div>
-  <textarea id="codeAns" class="editor" style="height:180px">${esc(c.starter)}</textarea>
-  <div class="toolbar"><button class="primary" id="codeRun">▶ 実行して判定</button></div><div id="codeOut"></div>`;
+$('#quizArea').addEventListener('click', e => { if (e.target.closest('[data-try-code]')) { const z = quizQueue[quizIdx]; openInStudio('quiz_' + z.id + '.py', z.code + '\n'); } });
+window.__codeTask = id => {
+  const c = CODING.find(x => x.id === id);
+  $('#quizArea').innerHTML = `<h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p><details><summary>ヒント</summary><p class="kv">${esc(c.hint)}</p></details>
+  <div class="toolbar">${bmButton('code:' + c.id)}<button onclick="__restartQuiz()">一覧へ戻る</button></div>
+  <textarea id="codeAns" class="editor" style="height:180px" spellcheck="false" aria-label="解答コード">${esc(c.starter)}</textarea>
+  <div class="toolbar"><button class="primary" id="codeRun">▶ 実行して判定</button></div><div id="codeOut" aria-live="polite"></div>`;
   $('#codeRun').addEventListener('click', async () => {
-    const r = await runPython($('#codeAns').value, { stdin: '' });
-    const ok = !r.error && r.stdout.replace(/\n$/, '') === c.expect;
-    recordQuiz('code:' + c.title, ok);
-    $('#codeOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error || ''))}</pre><div class="explain">${ok ? '✅ テスト合格（期待出力と一致）' : '❌ 期待出力と異なります<br>期待: <pre>' + esc(c.expect) + '</pre>' + (c.lesson && lessonById[c.lesson] ? `<button onclick="__goLesson('${c.lesson}')">📖 関連レッスン「${esc(lessonById[c.lesson].title)}」で復習</button>` : '')}</div>`;
+    $('#codeOut').innerHTML = '<p class="kv">判定中…</p>';
+    const verdict = await checkCodingAnswer(c, $('#codeAns').value, code => runPython(code, { isolated: true, filename: '<answer>' }));
+    recordQuiz('code:' + c.id, verdict.ok);
+    $('#codeOut').innerHTML = `<pre class="console">${outputHtml(verdict.first)}</pre><div class="explain">${verdict.ok ? '✅ テスト合格（' + verdict.cases + '件のテストで期待出力と一致）' : '❌ ' + esc(verdict.reason) + (verdict.expect != null ? '<br>期待: <pre>' + esc(verdict.expect) + '</pre>' : '') + (c.lesson && lessonById[c.lesson] ? `<button onclick="__goLesson('${c.lesson}')">📖 関連レッスン「${esc(lessonById[c.lesson].title)}」で復習</button>` : '')}</div>`;
   });
 };
-window.__bugTask = i => {
-  const c = BUGS[i];
-  $('#quizArea').innerHTML = `<h3>${esc(c.title)}</h3><p>下のコードにはバグがあります。直して実行してください。</p><p class="kv">ヒント: ${esc(c.hint)}</p>
-  <div class="toolbar"><button data-bmkey="bug:${esc(c.title)}">${progress.bookmarks.includes('bug:' + c.title) ? '★ ブックマーク中' : '☆ ブックマーク'}</button></div>
-  <textarea id="bugAns" class="editor" style="height:140px">${esc(c.bad)}</textarea>
-  <div class="toolbar"><button class="primary" id="bugRun">▶ 実行して判定</button><button id="bugGood">修正例を見る</button></div><div id="bugOut"></div>`;
+window.__bugTask = id => {
+  const c = BUGS.find(x => x.id === id);
+  $('#quizArea').innerHTML = `<h3>${esc(c.title)}</h3><p>下のコードにはバグがあります。直して実行してください。期待される出力: <code>${esc(c.expect.replace(/\n/g, ' / '))}</code></p><details><summary>ヒント</summary><p class="kv">${esc(c.hint)}</p></details>
+  <div class="toolbar">${bmButton('bug:' + c.id)}<button onclick="__restartQuiz()">一覧へ戻る</button></div>
+  <textarea id="bugAns" class="editor" style="height:140px" spellcheck="false" aria-label="修正するコード">${esc(c.bad)}</textarea>
+  <div class="toolbar"><button class="primary" id="bugRun">▶ 実行して判定</button><button id="bugGood">修正例を見る</button></div><div id="bugOut" aria-live="polite"></div>`;
   $('#bugRun').addEventListener('click', async () => {
-    const code = $('#bugAns').value; const r = await runPython(code, { stdin: '' });
-    const ok = !r.error && r.stdout.replace(/\n$/, '') === c.expect && code !== c.bad;
-    recordQuiz('bug:' + c.title, ok);
-    $('#bugOut').innerHTML = `<pre>${esc((r.stdout || '') + (r.error || ''))}</pre><div class="explain">${ok ? '✅ 修正できました' : 'まだ直っていません。エラーメッセージとヒントを見てください<br>' + (c.lesson && lessonById[c.lesson] ? `<button onclick="__goLesson('${c.lesson}')">📖 関連レッスン「${esc(lessonById[c.lesson].title)}」で復習</button>` : '')}</div>`;
+    const code = $('#bugAns').value; const r = await runPython(code, { isolated: true, filename: '<answer>' });
+    const out = (r.segs || []).filter(s => s.s === 'out').map(s => s.t).join('');
+    const ok = !r.error && normOut(out) === normOut(c.expect);
+    recordQuiz('bug:' + c.id, ok);
+    $('#bugOut').innerHTML = `<pre class="console">${outputHtml(r)}</pre><div class="explain">${ok ? '✅ 修正できました' : 'まだ直っていません。エラーメッセージとヒントを見てください<br>' + (c.lesson && lessonById[c.lesson] ? `<button onclick="__goLesson('${c.lesson}')">📖 関連レッスン「${esc(lessonById[c.lesson].title)}」で復習</button>` : '')}</div>`;
   });
-  $('#bugGood').addEventListener('click', () => { const m = MISTAKES.find(x => x.title && c.title.includes(x.title.split(' ')[0])); $('#bugOut').innerHTML = m ? `<pre>${esc(m.good)}</pre><p>${esc(m.cause)}</p>` : '解説は「よくある間違い」を参照してください'; });
+  $('#bugGood').addEventListener('click', () => { const m = MISTAKES.find(x => x.id === c.mistake); $('#bugOut').innerHTML = `<pre>${esc(c.good)}</pre>${m ? `<p>${esc(m.cause)} <button class="chip" onclick="__goMistake('${m.id}')">よくある間違い「${esc(m.title)}」</button></p>` : ''}`; });
 };
-$$('.qmode').forEach(b => b.addEventListener('click', () => { qmode = b.dataset.qmode; $$('.qmode').forEach(x => x.classList.toggle('active', x === b)); startQuiz(); }));
+$$('.qmode').forEach(b => b.addEventListener('click', () => { setQmode(b.dataset.qmode); startQuiz(); }));
 $('#shuffleBtn').addEventListener('click', () => startQuiz());
 $('#optShuffleBtn').addEventListener('click', () => {
   optShuffle = !optShuffle; store.set('optShuffle', optShuffle);
-  $('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF');
+  $('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF'); $('#optShuffleBtn').setAttribute('aria-pressed', optShuffle);
   if (qmode === 'choice' || qmode === 'fill') startQuiz();
 });
 $('#bookmarkQuizBtn').addEventListener('click', () => {
-  const marked = QUIZZES.filter(z => progress.bookmarks.includes('quiz:' + z.id));
-  if (!marked.length) { $('#quizArea').innerHTML = '<div class="explain">ブックマークした四択問題がまだありません。問題の ☆ から追加できます。</div>'; return; }
-  qmode = 'choice'; $$('.qmode').forEach(x => x.classList.toggle('active', x.dataset.qmode === 'choice'));
-  quizQueue = shuffled(marked).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice();
+  const marked = [...QUIZZES.filter(z => progress.bookmarks.includes('quiz:' + z.id)), ...FILLS.filter(z => progress.bookmarks.includes('fill:' + z.id))];
+  if (!marked.length) { $('#quizArea').innerHTML = '<div class="explain">ブックマークした四択・穴埋め問題がまだありません。問題の ☆ から追加できます。</div>'; return; }
+  setQmode('choice'); quizQueue = shuffled(marked).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice();
 });
-$('#reviewWrongBtn').addEventListener('click', () => {
-  if (!progress.wrong.length) { $('#quizArea').innerHTML = '<div class="explain">復習対象はありません。</div>'; return; }
-  qmode = 'choice'; quizQueue = QUIZZES.filter(z => progress.wrong.includes(z.id)).map(withShuffledOptions); if (!quizQueue.length) { $('#quizArea').innerHTML = '<div class="explain">四択の復習対象はありません（コーディング等は各モードから再挑戦できます）。</div>'; return; }
-  quizIdx = 0; quizRight = 0; showChoice();
-});
+window.__reviewWrong = () => {
+  const qs = [...QUIZZES.filter(z => progress.wrong.includes('quiz:' + z.id)), ...FILLS.filter(z => progress.wrong.includes('fill:' + z.id))];
+  const others = progress.wrong.filter(k => /^(code|bug):/.test(k));
+  if (!qs.length) { $('#quizArea').innerHTML = `<div class="explain">${others.length ? '四択・穴埋めの復習対象はありません。未合格のコーディング／バグ修正: ' + others.map(k => esc(labelOf(k))).join('、') : '復習対象はありません。'}</div>`; return; }
+  setQmode('choice'); quizQueue = qs.map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice();
+};
+$('#reviewWrongBtn').addEventListener('click', () => __reviewWrong());
 
 /* ================= Reference ================= */
 function renderRefList(){
   const q = ($('#refSearch').value || '').toLowerCase(); const sort = $('#refSort').value;
   let list = REFERENCE.filter(r => !q || (r.name + r.summary + r.category + r.id).toLowerCase().includes(q));
   list.sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'category' ? a.category.localeCompare(b.category) || (IMP[a.importance] - IMP[b.importance]) : (IMP[a.importance] - IMP[b.importance]) || a.name.localeCompare(b.name));
-  $('#refList').innerHTML = list.map(r => `<div class="item" onclick="__goRef('${r.id}')"><b>${esc(r.name)}</b> <span class="badge ${r.importance === '最重要' ? 'hot' : ''}">${esc(r.importance)}</span><div class="meta">${esc(r.category)}・${esc(r.summary)}</div></div>`).join('');
+  $('#refList').innerHTML = list.map(r => `<button class="item" onclick="__goRef('${r.id}')"><b>${esc(r.name)}</b> <span class="badge ${r.importance === '最重要' ? 'hot' : ''}">${esc(r.importance)}</span><div class="meta">${esc(r.category)}・${esc(r.summary)}</div></button>`).join('');
 }
 $('#refSearch').addEventListener('input', renderRefList);
 $('#refSort').addEventListener('change', renderRefList);
@@ -535,40 +652,42 @@ function selectRef(id){
   <p><b>引数:</b> ${esc(r.args)}<br><b>戻り値:</b> ${esc(r.returns)}</p>
   <h3>使用例</h3><pre>${esc(r.example)}</pre>
   <div class="toolbar"><button class="primary" data-ref-run="${r.id}">▶ 例を実行</button><button data-ref-studio="${r.id}">Studioで開く</button></div>
-  <div id="refOut"></div><p><b>出力:</b> ${esc(r.expected)}</p>
+  <div id="refOut"></div><p><b>出力:</b></p><pre>${esc(r.expected)}</pre>
   <p>⚠ <b>よくある間違い・注意:</b> ${esc(r.pitfalls)}</p>
   <div>${refChips(r.related)} ${r.lesson && lessonById[r.lesson] ? `<button class="chip" onclick="__goLesson('${r.lesson}')">関連レッスン</button>` : ''}</div>
-  <p class="kv">公式: <a href="https://docs.python.org/ja/3/" target="_blank" rel="noopener">Python公式ドキュメント</a></p>`;
+  <p class="kv">公式: <a href="${esc(r.doc || 'https://docs.python.org/ja/3.12/')}" target="_blank" rel="noopener">${r.doc ? 'このページの公式ドキュメント' : 'Python公式ドキュメント'}</a></p>`;
 }
 $('#refDetail').addEventListener('click', async e => {
   const run = e.target.closest('[data-ref-run]'); const st = e.target.closest('[data-ref-studio]');
-  if (run) { const r = refById[run.dataset.refRun]; const inp = r.id === 'input' ? 'タロウ\n' : ''; const res = await runPython(r.example, { stdin: inp }); $('#refOut').innerHTML = `<pre>${esc((res.stdout || '') + (res.error || ''))}</pre>`; }
-  if (st) { const r = refById[st.dataset.refStudio]; files['ref_' + r.id.replace(/\W/g, '_') + '.py'] = r.example; switchFile(Object.keys(files).find(f => f.startsWith('ref_'))); showView('studio'); }
+  if (run) { const r = refById[run.dataset.refRun]; $('#refOut').innerHTML = '<p class="kv">実行中…</p>'; const res = await runPython(r.example, { stdin: r.stdin || '', isolated: true, filename: `<ref ${r.id}>` }); $('#refOut').innerHTML = `<pre class="console">${outputHtml(res)}</pre>${imagesHtml(res.images)}`; }
+  if (st) { const r = refById[st.dataset.refStudio]; if (r.stdin) $('#stdinBox').value = r.stdin; openInStudio('ref_' + r.id.replace(/\W/g, '_') + '.py', r.example); }
 });
 
 /* ================= Glossary ================= */
 function renderGlossList(){
   const q = ($('#glossSearch').value || '').toLowerCase(); const sort = $('#glossSort').value;
   let list = GLOSSARY.filter(g => !q || (g.ja + g.en + g.def).toLowerCase().includes(q));
-  list.sort((a, b) => sort === 'name' ? a.ja.localeCompare(b.ja) : (IMP[a.importance] - IMP[b.importance]) || a.ja.localeCompare(b.ja));
-  $('#glossList').innerHTML = list.map(g => `<div class="item" onclick="__goTerm('${g.id}')"><b>${esc(g.ja)}</b> <span class="badge ${g.importance === '最重要' ? 'hot' : ''}">${esc(g.importance)}</span><div class="meta">${esc(g.en)}・${esc(g.def)}</div></div>`).join('');
+  list.sort((a, b) => sort === 'name' ? a.ja.localeCompare(b.ja, 'ja') : (IMP[a.importance] - IMP[b.importance]) || a.ja.localeCompare(b.ja, 'ja'));
+  $('#glossList').innerHTML = list.map(g => `<button class="item" onclick="__goTerm('${g.id}')"><b>${esc(g.ja)}</b> <span class="badge ${g.importance === '最重要' ? 'hot' : ''}">${esc(g.importance)}</span><div class="meta">${esc(g.en)}・${esc(g.def)}</div></button>`).join('');
 }
 $('#glossSearch').addEventListener('input', renderGlossList);
 $('#glossSort').addEventListener('change', renderGlossList);
 function selectTerm(id){
   const g = termById[id]; if (!g) return; renderGlossList();
+  const lessons = LESSONS.filter(l => (l.terms || []).includes(id));
   $('#glossDetail').innerHTML = `<h2>${esc(g.ja)} <span class="kv">${esc(g.en)}</span></h2><div class="kv">重要度 ${esc(g.importance)}</div>
   <p><b>定義:</b> ${esc(g.def)}</p><p><b>やさしく言うと:</b> ${esc(g.easy)}</p>
   ${g.example ? `<h3>例</h3><pre>${esc(g.example)}</pre>` : ''}
   <p>⚠ <b>よくある誤解:</b> ${esc(g.misconception)}</p>
-  <div>${termChips(g.related)}</div>`;
+  <div>${termChips(g.related)}</div>
+  ${lessons.length ? `<p><b>この用語が出てくるレッスン:</b> ${lessons.map(l => `<button class="chip" onclick="__goLesson('${l.id}')">${esc(l.title)}</button>`).join('')}</p>` : ''}`;
 }
 
 /* ================= Mistakes ================= */
 function renderMistakeList(){
   const q = ($('#mistakeSearch').value || '').toLowerCase();
   $('#mistakeList').innerHTML = MISTAKES.filter(m => !q || (m.title + m.cause + m.phenomenon + m.bad).toLowerCase().includes(q)).map(m =>
-    `<div class="item" onclick="__goMistake('${m.id}')"><b>${esc(m.title)}</b><div class="meta">${esc(m.phenomenon)}</div></div>`).join('');
+    `<button class="item" onclick="__goMistake('${m.id}')"><b>${esc(m.title)}</b><div class="meta">${esc(m.phenomenon)}</div></button>`).join('');
 }
 $('#mistakeSearch').addEventListener('input', renderMistakeList);
 function selectMistake(id){
@@ -582,49 +701,70 @@ function selectMistake(id){
 }
 $('#mistakeDetail').addEventListener('click', e => {
   const b = e.target.closest('[data-mistake-try]'); if (!b) return;
-  const m = MISTAKES.find(x => x.id === b.dataset.mistakeTry);
-  files['mistake_' + m.id + '.py'] = m.bad; switchFile('mistake_' + m.id + '.py'); showView('studio');
+  const m = MISTAKES.find(x => x.id === b.dataset.mistakeTry); openInStudio('mistake_' + m.id.replace(/\W/g, '_') + '.py', m.bad);
 });
 
 /* ================= Env & Packages ================= */
 function renderEnv(){
-  $('#envList').innerHTML = ENV_LESSONS.map(e => `<div class="card"><h4>${esc(e.title)}</h4><p>${esc(e.body)}</p><ul>${e.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>`).join('');
-  $('#pkgTable').innerHTML = `<table><tr><th>パッケージ</th><th>分野</th><th>用途</th><th>代表的な使い方</th><th>通常環境への導入</th><th>ブラウザ内</th><th>公式</th></tr>
-  ${PACKAGES.map(p => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.field)}</td><td>${esc(p.desc)}</td><td><code>${esc(p.usage)}</code></td><td><code>${esc(p.install)}</code></td><td><span class="badge ${p.browser === '動作確認済み' ? 'ok' : ''}">${esc(p.browser)}</span></td><td><a href="${esc(p.official)}" target="_blank" rel="noopener">公式</a></td></tr>`).join('')}</table>`;
+  $('#envList').innerHTML = ENV_LESSONS.map(e => `<div class="card" id="env-${e.id}"><h4>${esc(e.title)}</h4><p>${esc(e.body)}</p><ul>${e.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>${e.official ? `<p class="kv"><a href="${esc(e.official)}" target="_blank" rel="noopener">公式資料</a></p>` : ''}</div>`).join('');
+  $('#pkgTable').innerHTML = `<div class="table-wrap"><table><tr><th>パッケージ</th><th>分野</th><th>用途</th><th>代表的な使い方</th><th>通常環境への導入</th><th>ブラウザ内（Pyodide 0.26.4）</th><th>公式</th></tr>
+  ${PACKAGES.map(p => `<tr id="env-pkg-${p.id}"><td><b>${esc(p.name)}</b></td><td>${esc(p.field)}</td><td>${esc(p.desc)}</td><td>${esc(p.usage)}</td><td><code>${esc(p.install)}</code></td><td><span class="badge ${/^import で利用可/.test(p.browser) ? 'ok' : ''}">${esc(p.browser)}</span>${p.browserNote ? `<div class="meta">${esc(p.browserNote)}</div>` : ''}${p.sample ? `<div><button data-pkg-try="${p.id}">サンプルを実行</button></div>` : ''}</td><td><a href="${esc(p.official)}" target="_blank" rel="noopener">公式</a></td></tr>`).join('')}</table></div>`;
 }
+$('#pkgTable').addEventListener('click', e => { const b = e.target.closest('[data-pkg-try]'); if (!b) return; const p = PACKAGES.find(x => x.id === b.dataset.pkgTry); openInStudio('pkg_' + p.id.replace(/\W/g, '_') + '.py', p.sample); });
 
 /* ================= Progress ================= */
-function bookmark(kind, id){ const k = kind + ':' + id; progress.bookmarks = progress.bookmarks.includes(k) ? progress.bookmarks.filter(x => x !== k) : [...progress.bookmarks, k]; saveProgress(); }
+function toggleBookmark(k){ progress.bookmarks = progress.bookmarks.includes(k) ? progress.bookmarks.filter(x => x !== k) : [...progress.bookmarks, k]; saveProgress(); }
+function openKey(k){
+  const [kind, ...rest] = k.split(':'); const id = rest.join(':');
+  if (kind === 'quiz') __goQuiz(id);
+  else if (kind === 'fill') { const z = FILLS.find(x => x.id === id); if (z) { showView('quiz'); setQmode('fill'); quizQueue = [withShuffledOptions(z)]; quizIdx = 0; quizRight = 0; showChoice(); } }
+  else if (kind === 'code') { showView('quiz'); setQmode('code'); __codeTask(id); }
+  else if (kind === 'bug') { showView('quiz'); setQmode('bug'); __bugTask(id); }
+}
+window.__openKey = openKey;
 function renderProgress(){
   const total = progress.history.length, right = progress.history.filter(h => h.ok).length;
   $('#progressSummary').innerHTML = `
     <div class="card"><h4>レッスン</h4><p>${progress.lessonsDone.length} / ${LESSONS.length} 学習済</p></div>
     <div class="card"><h4>演習</h4><p>${total} 回解答・正解 ${right} 回${total ? `（${Math.round(right / total * 100)}%）` : ''}</p></div>
-    <div class="card"><h4>復習対象</h4><p>${progress.wrong.length} 件</p></div>
-    <div class="card"><h4>収録コンテンツ</h4><p>レッスン ${LESSONS.length}／四択 ${QUIZZES.length}／リファレンス ${REFERENCE.length}／用語 ${GLOSSARY.length}／間違い ${MISTAKES.length}</p></div>`;
-  $('#historyView').innerHTML = progress.history.slice(-30).reverse().map(h => `<div class="item">${h.ok ? '✅' : '❌'} ${esc(h.label)} <span class="meta">${esc(h.t.slice(0, 10))}</span></div>`).join('') || 'まだ履歴がありません';
-  $('#bookmarkView').innerHTML = progress.bookmarks.map(b => {
-    let label = b;
-    if (b.startsWith('quiz:')) { const z = QUIZZES.find(x => x.id === b.slice(5)); if (z) label = '四択: ' + z.question.slice(0, 40); }
-    return `<span class="chip">${esc(label)}</span>`;
-  }).join('') || 'なし';
+    <div class="card"><h4>復習対象</h4><p>${progress.wrong.length} 件 ${progress.wrong.length ? '<button onclick="showView(\'quiz\');__reviewWrong()">復習する</button>' : ''}</p></div>
+    <div class="card"><h4>収録コンテンツ</h4><p>レッスン ${LESSONS.length}／四択 ${QUIZZES.length}／穴埋め ${FILLS.length}／コーディング ${CODING.length}／バグ修正 ${BUGS.length}／リファレンス ${REFERENCE.length}／用語 ${GLOSSARY.length}／間違い ${MISTAKES.length}</p></div>`;
+  $('#historyView').innerHTML = progress.history.slice(-30).reverse().map(h => `<button class="item" onclick="__openKey('${esc(h.key)}')">${h.ok ? '✅' : '❌'} ${esc(labelOf(h.key))} <span class="meta">${esc(String(h.t).slice(0, 16).replace('T', ' '))}</span></button>`).join('') || 'まだ履歴がありません';
+  $('#bookmarkView').innerHTML = progress.bookmarks.map(b => `<button class="chip" onclick="__openKey('${esc(b)}')">${esc(labelOf(b))}</button>`).join('') || 'なし';
 }
 $('#exportBtn').addEventListener('click', () => {
-  download('python-studio-backup.json', JSON.stringify({ version: 1, files, progress, notebook: nbCells }, null, 2), 'application/json');
+  if (!isBinary(files[currentFile])) files[currentFile] = editorValue();
+  const data = { app: 'python-studio', schema: SCHEMA, exportedAt: new Date().toISOString(), files, currentFile, progress, notebook: nbCells, notebookMeta: nbMeta,
+    settings: { theme: store.get('theme', ''), optShuffle, fontSize: store.get('fontSize', 14) } };
+  downloadBlob('python-studio-backup-' + new Date().toISOString().slice(0, 10) + '.json', new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
 });
 $('#importData').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
-    const d = JSON.parse(await e.target.files[0].text());
-    if (d.files) { files = d.files; currentFile = Object.keys(files)[0]; }
-    if (d.progress) progress = d.progress;
-    if (d.notebook) nbCells = d.notebook;
-    saveFiles(); saveProgress(); setEditorValue(files[currentFile]); renderTabs(); renderNotebook(); renderProgress(); alert('読み込みました');
+    const d = JSON.parse(await f.text());
+    if (!d || typeof d !== 'object' || !(d.files || d.progress || d.notebook)) throw new Error('Python Studio のバックアップ形式ではありません');
+    const nf = d.files ? normalizeFiles(d.files) : null;
+    const summaryText = `${nf ? Object.keys(nf).length + 'ファイル、' : ''}${d.progress ? '学習記録、' : ''}${d.notebook ? 'Notebook、' : ''}`.replace(/、$/, '');
+    if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n現在のデータは自動で退避します（データ初期化以外では消えません）。`)) return;
+    store.set('before-import', { files, progress, notebook: nbCells, at: new Date().toISOString() });
+    if (nf) { files = nf; currentFile = d.currentFile && nf[d.currentFile] != null ? d.currentFile : Object.keys(files)[0]; }
+    if (d.progress) progress = normalizeProgress(d.progress, QUIZZES);
+    if (d.notebook) { nbCells = normalizeNotebook(d.notebook); nbMeta = d.notebookMeta || null; }
+    if (d.settings) { if (typeof d.settings.optShuffle === 'boolean') { optShuffle = d.settings.optShuffle; store.set('optShuffle', optShuffle); } if (d.settings.theme) store.set('theme', d.settings.theme); if (d.settings.fontSize) store.set('fontSize', d.settings.fontSize); }
+    saveFiles(); saveProgress(); saveNotebook(); setEditorValue(displayText(currentFile)); updateReadOnly(); renderTabs(); renderNotebook(); renderProgress(); renderLessonList();
+    banner('バックアップを読み込みました。', 'ok');
   } catch(err){ alert('読み込みに失敗しました: ' + err.message); }
 });
-$('#wipeBtn').addEventListener('click', () => { if (confirm('学習記録と作業ファイルを初期化しますか？')) { localStorage.clear(); location.reload(); } });
+$('#wipeBtn').addEventListener('click', () => {
+  if (confirm('このアプリの学習記録・作業ファイル・Notebook・設定をすべて削除しますか？（他のサイトやアプリのデータには影響しません）')) {
+    for (const k of store.keys()) { try { localStorage.removeItem(k); } catch(e){} }
+    location.reload();
+  }
+});
 
 /* ================= init ================= */
-renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList();
-$('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF');
+renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList(); renderTplList();
+$('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF'); $('#optShuffleBtn').setAttribute('aria-pressed', optShuffle);
 startQuiz(); initEditor();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+window.__pystudio = { get files(){ return files; }, get progress(){ return progress; }, get nbCells(){ return nbCells; }, get kernelState(){ return kernelState; } };

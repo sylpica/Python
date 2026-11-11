@@ -1,0 +1,2023 @@
+{
+ "generatedAt": "2026-11-10T21:11:02.990Z",
+ "baseCommit": "edeb1bb (main, オーナーの学習テンプレート追加を取り込み済み)",
+ "environment": {
+  "cpython": "3.12.3 (numpy 1.26.4, pandas 2.2.0)",
+  "pyodide": "3.12.1 / Pyodide 0.26.4",
+  "browser": "Chromium (Playwright, headless, Linux)",
+  "note": "公開URL・Safari/iOS・Firefox・オフライン起動は未検証"
+ },
+ "tests": {
+  "core": {
+   "total": 11,
+   "pass": 11,
+   "fail": 0,
+   "skip": 0
+  },
+  "engine": {
+   "total": 64,
+   "pass": 64,
+   "fail": 0,
+   "skip": 0
+  },
+  "content": {
+   "total": 195,
+   "pass": 195,
+   "fail": 0,
+   "skip": 0
+  },
+  "e2e": {
+   "total": 19,
+   "pass": 19,
+   "fail": 0,
+   "skip": 0
+  },
+  "offline": {
+   "total": 10,
+   "pass": 10,
+   "fail": 0,
+   "skip": 0,
+   "scope": "Chromium+実Service Worker、ローカルサーバー。オフライン再読込・起動1.6秒・更新時のキャッシュ整理・破損/旧形式データ・バックアップ往復"
+  }
+ },
+ "counts": {
+  "templates": 10,
+  "lessons": 30,
+  "quizzes": 50,
+  "fills": 6,
+  "coding": 4,
+  "bugs": 4,
+  "reference": 42,
+  "glossary": 34,
+  "mistakes": 15,
+  "packages": 14,
+  "envLessons": 12,
+  "examplesTotal": 125,
+  "examplesMatched": 115,
+  "examplesMismatch": 0,
+  "examplesNotExecutable": 10
+ },
+ "bias": {
+  "quizzes": 50,
+  "storedPositions": [
+   12,
+   13,
+   13,
+   12
+  ],
+  "chiSquareStored": 0.08,
+  "fillPositions": [
+   1,
+   2,
+   1,
+   2
+  ],
+  "answerIsUniqueLongest": 7,
+  "answerTiesLongest": 8,
+  "answerIsUniqueShortest": 2,
+  "uniqueLongestRate": 0.14,
+  "shuffledBySeed": [
+   {
+    "seed": 1,
+    "counts": [
+     6,
+     14,
+     14,
+     16
+    ]
+   },
+   {
+    "seed": 2,
+    "counts": [
+     12,
+     10,
+     15,
+     13
+    ]
+   },
+   {
+    "seed": 3,
+    "counts": [
+     12,
+     18,
+     11,
+     9
+    ]
+   },
+   {
+    "seed": 42,
+    "counts": [
+     12,
+     16,
+     11,
+     11
+    ]
+   },
+   {
+    "seed": 2026,
+    "counts": [
+     14,
+     9,
+     16,
+     11
+    ]
+   }
+  ]
+ },
+ "quizVerification": [
+  {
+   "id": "q001",
+   "how": "executed-output"
+  },
+  {
+   "id": "q002",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q003",
+   "how": "executed-output"
+  },
+  {
+   "id": "q004",
+   "how": "executed-state"
+  },
+  {
+   "id": "q005",
+   "how": "executed-output"
+  },
+  {
+   "id": "q006",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q007",
+   "how": "executed-exception"
+  },
+  {
+   "id": "q008",
+   "how": "executed-output"
+  },
+  {
+   "id": "q009",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q010",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q011",
+   "how": "executed-output"
+  },
+  {
+   "id": "q012",
+   "how": "manual: list のみミュータブル（tuple/str/int は不変）: 言語仕様"
+  },
+  {
+   "id": "q013",
+   "how": "executed-exception"
+  },
+  {
+   "id": "q014",
+   "how": "executed-exception"
+  },
+  {
+   "id": "q015",
+   "how": "executed-output"
+  },
+  {
+   "id": "q016",
+   "how": "executed-output"
+  },
+  {
+   "id": "q017",
+   "how": "executed-output"
+  },
+  {
+   "id": "q018",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q019",
+   "how": "executed-state"
+  },
+  {
+   "id": "q020",
+   "how": "executed-output"
+  },
+  {
+   "id": "q021",
+   "how": "executed-output"
+  },
+  {
+   "id": "q022",
+   "how": "executed-output"
+  },
+  {
+   "id": "q023",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q024",
+   "how": "manual: IEEE 754 二進浮動小数点の表現誤差: 公式チュートリアル「浮動小数点演算、その問題と制限」"
+  },
+  {
+   "id": "q025",
+   "how": "executed-output"
+  },
+  {
+   "id": "q026",
+   "how": "executed-output"
+  },
+  {
+   "id": "q027",
+   "how": "executed-output"
+  },
+  {
+   "id": "q028",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q029",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q030",
+   "how": "executed-output"
+  },
+  {
+   "id": "q031",
+   "how": "executed-expression"
+  },
+  {
+   "id": "q032",
+   "how": "manual: sorted は新しいリスト、list.sort は in-place で None: 公式 sorting HOWTO"
+  },
+  {
+   "id": "q033",
+   "how": "executed-output"
+  },
+  {
+   "id": "q034",
+   "how": "executed-output"
+  },
+  {
+   "id": "q035",
+   "how": "manual: 関数内の代入はローカル: 実行モデル 4.2.2"
+  },
+  {
+   "id": "q036",
+   "how": "manual: with は __exit__ を必ず呼ぶ: PEP 343"
+  },
+  {
+   "id": "q037",
+   "how": "manual: 型ヒントは実行時に強制されない: PEP 484"
+  },
+  {
+   "id": "q038",
+   "how": "manual: async def 呼び出しはコルーチンを返す: 言語リファレンス"
+  },
+  {
+   "id": "q039",
+   "how": "executed-output"
+  },
+  {
+   "id": "q040",
+   "how": "executed-output"
+  },
+  {
+   "id": "q041",
+   "how": "executed-output"
+  },
+  {
+   "id": "q042",
+   "how": "executed-output"
+  },
+  {
+   "id": "q043",
+   "how": "executed-output"
+  },
+  {
+   "id": "q044",
+   "how": "executed-output"
+  },
+  {
+   "id": "q045",
+   "how": "executed-output"
+  },
+  {
+   "id": "q046",
+   "how": "executed-output"
+  },
+  {
+   "id": "q047",
+   "how": "executed-output"
+  },
+  {
+   "id": "q048",
+   "how": "executed-output"
+  },
+  {
+   "id": "q049",
+   "how": "executed-output"
+  },
+  {
+   "id": "q050",
+   "how": "executed-output"
+  }
+ ],
+ "examples": [
+  {
+   "kind": "lesson",
+   "id": "variables-types",
+   "category": "A",
+   "expected": "int\nfloat\n25\nタロウさん",
+   "pyodide": {
+    "out": "int\nfloat\n25\nタロウさん",
+    "err": null
+   },
+   "cpython": {
+    "out": "int\nfloat\n25\nタロウさん",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "operators",
+   "category": "A",
+   "expected": "3.5\n3\n1\n8\nTrue",
+   "pyodide": {
+    "out": "3.5\n3\n1\n8\nTrue",
+    "err": null
+   },
+   "cpython": {
+    "out": "3.5\n3\n1\n8\nTrue",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "strings",
+   "category": "A",
+   "expected": "P\nyth\n6\nPYTHON\nこんにちは、花子さん",
+   "pyodide": {
+    "out": "P\nyth\n6\nPYTHON\nこんにちは、花子さん",
+    "err": null
+   },
+   "cpython": {
+    "out": "P\nyth\n6\nPYTHON\nこんにちは、花子さん",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "lists",
+   "category": "A",
+   "expected": "['もも', 'みかん', 'ぶどう']\n3\nTrue",
+   "pyodide": {
+    "out": "['もも', 'みかん', 'ぶどう']\n3\nTrue",
+    "err": null
+   },
+   "cpython": {
+    "out": "['もも', 'みかん', 'ぶどう']\n3\nTrue",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "dict-set",
+   "category": "A",
+   "expected": "90\n0\n[2, 3]\n2",
+   "pyodide": {
+    "out": "90\n0\n[2, 3]\n2",
+    "err": null
+   },
+   "cpython": {
+    "out": "90\n0\n[2, 3]\n2",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "conditionals",
+   "category": "A",
+   "expected": "B",
+   "pyodide": {
+    "out": "B",
+    "err": null
+   },
+   "cpython": {
+    "out": "B",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "loops",
+   "category": "A",
+   "expected": "10\n1 2 4",
+   "pyodide": {
+    "out": "10\n1 2 4",
+    "err": null
+   },
+   "cpython": {
+    "out": "10\n1 2 4",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "functions",
+   "category": "A",
+   "expected": "8\n15\n6",
+   "pyodide": {
+    "out": "8\n15\n6",
+    "err": null
+   },
+   "cpython": {
+    "out": "8\n15\n6",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "import-module",
+   "category": "A",
+   "expected": "4.0\n3\n3.14",
+   "pyodide": {
+    "out": "4.0\n3\n3.14",
+    "err": null
+   },
+   "cpython": {
+    "out": "4.0\n3\n3.14",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "tuple-slice",
+   "category": "A",
+   "expected": "3\n[1, 2, 3]\n[0, 2, 4]\n[5, 4, 3, 2, 1, 0]",
+   "pyodide": {
+    "out": "3\n[1, 2, 3]\n[0, 2, 4]\n[5, 4, 3, 2, 1, 0]",
+    "err": null
+   },
+   "cpython": {
+    "out": "3\n[1, 2, 3]\n[0, 2, 4]\n[5, 4, 3, 2, 1, 0]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "comprehensions",
+   "category": "A",
+   "expected": "[1, 4, 9, 16, 25]\n[2, 4]\n{1: 10, 2: 20}",
+   "pyodide": {
+    "out": "[1, 4, 9, 16, 25]\n[2, 4]\n{1: 10, 2: 20}",
+    "err": null
+   },
+   "cpython": {
+    "out": "[1, 4, 9, 16, 25]\n[2, 4]\n{1: 10, 2: 20}",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "exceptions",
+   "category": "A",
+   "expected": "42\nNone\nZeroDivisionError",
+   "pyodide": {
+    "out": "42\nNone\nZeroDivisionError",
+    "err": null
+   },
+   "cpython": {
+    "out": "42\nNone\nZeroDivisionError",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "file-io",
+   "category": "A",
+   "expected": "2\n1行目\n1行目\n2行目\n3行目",
+   "pyodide": {
+    "out": "2\n1行目\n1行目\n2行目\n3行目",
+    "err": null
+   },
+   "cpython": {
+    "out": "2\n1行目\n1行目\n2行目\n3行目",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "args-scope",
+   "category": "A",
+   "expected": "6\n35\n1\n100",
+   "pyodide": {
+    "out": "6\n35\n1\n100",
+    "err": null
+   },
+   "cpython": {
+    "out": "6\n35\n1\n100",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "class-inheritance",
+   "category": "A",
+   "expected": "ポチ\nワン",
+   "pyodide": {
+    "out": "ポチ\nワン",
+    "err": null
+   },
+   "cpython": {
+    "out": "ポチ\nワン",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "iterator-generator",
+   "category": "A",
+   "expected": "[3, 2, 1]\n0\n1",
+   "pyodide": {
+    "out": "[3, 2, 1]\n0\n1",
+    "err": null
+   },
+   "cpython": {
+    "out": "[3, 2, 1]\n0\n1",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "decorator",
+   "category": "A",
+   "expected": "HELLO TARO!",
+   "pyodide": {
+    "out": "HELLO TARO!",
+    "err": null
+   },
+   "cpython": {
+    "out": "HELLO TARO!",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "stdlib",
+   "category": "A",
+   "expected": "3\n[('a', 3)]\n15",
+   "pyodide": {
+    "out": "3\n[('a', 3)]\n15",
+    "err": null
+   },
+   "cpython": {
+    "out": "3\n[('a', 3)]\n15",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "type-hints",
+   "category": "A",
+   "expected": "42\na\n{'x': <class 'int'>, 'return': <class 'int'>}",
+   "pyodide": {
+    "out": "42\na\n{'x': <class 'int'>, 'return': <class 'int'>}",
+    "err": null
+   },
+   "cpython": {
+    "out": "42\na\n{'x': <class 'int'>, 'return': <class 'int'>}",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "context-manager",
+   "category": "A",
+   "expected": "<p>\n中身\n</p>",
+   "pyodide": {
+    "out": "<p>\n中身\n</p>",
+    "err": null
+   },
+   "cpython": {
+    "out": "<p>\n中身\n</p>",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "async-intro",
+   "category": "A",
+   "expected": "['hello a', 'hello b']",
+   "pyodide": {
+    "out": "['hello a', 'hello b']",
+    "err": null
+   },
+   "cpython": {
+    "out": "['hello a', 'hello b']",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "numpy-pandas",
+   "category": "A",
+   "expected": "[10, 20, 30]\n85.0\n['a', 'b']",
+   "pyodide": {
+    "out": "[10, 20, 30]\n85.0\n['a', 'b']",
+    "err": null
+   },
+   "cpython": {
+    "out": "[10, 20, 30]\n85.0\n['a', 'b']",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "string-methods",
+   "category": "A",
+   "expected": "['apple', 'banana', 'orange']\napple-banana-orange\nbonono",
+   "pyodide": {
+    "out": "['apple', 'banana', 'orange']\napple-banana-orange\nbonono",
+    "err": null
+   },
+   "cpython": {
+    "out": "['apple', 'banana', 'orange']\napple-banana-orange\nbonono",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "list-operations",
+   "category": "A",
+   "expected": "[3, 1, 2, 4, 5, 6]\n[6, 5, 4, 3, 2, 1]\n6 7",
+   "pyodide": {
+    "out": "[3, 1, 2, 4, 5, 6]\n[6, 5, 4, 3, 2, 1]\n6 7",
+    "err": null
+   },
+   "cpython": {
+    "out": "[3, 1, 2, 4, 5, 6]\n[6, 5, 4, 3, 2, 1]\n6 7",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "dict-operations",
+   "category": "A",
+   "expected": "未登録\nname Taro\nage 21\ncity Tokyo",
+   "pyodide": {
+    "out": "未登録\nname Taro\nage 21\ncity Tokyo",
+    "err": null
+   },
+   "cpython": {
+    "out": "未登録\nname Taro\nage 21\ncity Tokyo",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "function-arguments",
+   "category": "A",
+   "expected": "こんにちは、花子さん\nやあ、花子さん\n13",
+   "pyodide": {
+    "out": "こんにちは、花子さん\nやあ、花子さん\n13",
+    "err": null
+   },
+   "cpython": {
+    "out": "こんにちは、花子さん\nやあ、花子さん\n13",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "exceptions-advanced",
+   "category": "A",
+   "expected": "計算成功\n処理終了\n5.0",
+   "pyodide": {
+    "out": "計算成功\n処理終了\n5.0",
+    "err": null
+   },
+   "cpython": {
+    "out": "計算成功\n処理終了\n5.0",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "csv-files",
+   "category": "A",
+   "expected": "Hana 95\n175",
+   "pyodide": {
+    "out": "Hana 95\n175",
+    "err": null
+   },
+   "cpython": {
+    "out": "Hana 95\n175",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "sets-operations",
+   "category": "A",
+   "expected": "[3, 4]\n[1, 2, 3, 4, 5]\n[1, 2]\n3",
+   "pyodide": {
+    "out": "[3, 4]\n[1, 2, 3, 4, 5]\n[1, 2]\n3",
+    "err": null
+   },
+   "cpython": {
+    "out": "[3, 4]\n[1, 2, 3, 4, 5]\n[1, 2]\n3",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "lesson",
+   "id": "sorting-key",
+   "category": "A",
+   "expected": "['fig', 'kiwi', 'apple', 'banana']\n[('Hana', 25), ('Taro', 30)]",
+   "pyodide": {
+    "out": "['fig', 'kiwi', 'apple', 'banana']\n[('Hana', 25), ('Taro', 30)]",
+    "err": null
+   },
+   "cpython": {
+    "out": "['fig', 'kiwi', 'apple', 'banana']\n[('Hana', 25), ('Taro', 30)]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-calc",
+   "category": "A",
+   "expected": "小計: 360円\n税込: 396円",
+   "pyodide": {
+    "out": "小計: 360円\n税込: 396円",
+    "err": null
+   },
+   "cpython": {
+    "out": "小計: 360円\n税込: 396円",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-branch",
+   "category": "A",
+   "expected": "72点は B 判定です",
+   "pyodide": {
+    "out": "72点は B 判定です",
+    "err": null
+   },
+   "cpython": {
+    "out": "72点は B 判定です",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-list-loop",
+   "category": "A",
+   "expected": "合計: 108\n最大: 42\n2倍: [8, 16, 30, 32, 46, 84]",
+   "pyodide": {
+    "out": "合計: 108\n最大: 42\n2倍: [8, 16, 30, 32, 46, 84]",
+    "err": null
+   },
+   "cpython": {
+    "out": "合計: 108\n最大: 42\n2倍: [8, 16, 30, 32, 46, 84]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-dict-count",
+   "category": "A",
+   "expected": "tea 3\ncoffee 2\njuice 1",
+   "pyodide": {
+    "out": "tea 3\ncoffee 2\njuice 1",
+    "err": null
+   },
+   "cpython": {
+    "out": "tea 3\ncoffee 2\njuice 1",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-func",
+   "category": "A",
+   "expected": "1100\n1080",
+   "pyodide": {
+    "out": "1100\n1080",
+    "err": null
+   },
+   "cpython": {
+    "out": "1100\n1080",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-strings",
+   "category": "A",
+   "expected": "Yuya Kohno\n['2026', '11', '10']\n2026/11/10\nMython",
+   "pyodide": {
+    "out": "Yuya Kohno\n['2026', '11', '10']\n2026/11/10\nMython",
+    "err": null
+   },
+   "cpython": {
+    "out": "Yuya Kohno\n['2026', '11', '10']\n2026/11/10\nMython",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-try",
+   "category": "A",
+   "expected": "5.0\nゼロでは割れません",
+   "pyodide": {
+    "out": "5.0\nゼロでは割れません",
+    "err": null
+   },
+   "cpython": {
+    "out": "5.0\nゼロでは割れません",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-class",
+   "category": "A",
+   "expected": "1\n2\n3",
+   "pyodide": {
+    "out": "1\n2\n3",
+    "err": null
+   },
+   "cpython": {
+    "out": "1\n2\n3",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-fileio",
+   "category": "A",
+   "expected": "2 行\n一行目",
+   "pyodide": {
+    "out": "2 行\n一行目",
+    "err": null
+   },
+   "cpython": {
+    "out": "2 行\n一行目",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-csv",
+   "category": "A",
+   "expected": "売上合計: 360",
+   "pyodide": {
+    "out": "売上合計: 360",
+    "err": null
+   },
+   "cpython": {
+    "out": "売上合計: 360",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "print",
+   "category": "A",
+   "expected": "合計: 7",
+   "pyodide": {
+    "out": "合計: 7",
+    "err": null
+   },
+   "cpython": {
+    "out": "合計: 7",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "len",
+   "category": "A",
+   "expected": "3",
+   "pyodide": {
+    "out": "3",
+    "err": null
+   },
+   "cpython": {
+    "out": "3",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "sum",
+   "category": "A",
+   "expected": "10",
+   "pyodide": {
+    "out": "10",
+    "err": null
+   },
+   "cpython": {
+    "out": "10",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "min",
+   "category": "A",
+   "expected": "2",
+   "pyodide": {
+    "out": "2",
+    "err": null
+   },
+   "cpython": {
+    "out": "2",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "max",
+   "category": "A",
+   "expected": "8",
+   "pyodide": {
+    "out": "8",
+    "err": null
+   },
+   "cpython": {
+    "out": "8",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "range",
+   "category": "A",
+   "expected": "[1, 3, 5]",
+   "pyodide": {
+    "out": "[1, 3, 5]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[1, 3, 5]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "enumerate",
+   "category": "A",
+   "expected": "[(1, 'a'), (2, 'b')]",
+   "pyodide": {
+    "out": "[(1, 'a'), (2, 'b')]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[(1, 'a'), (2, 'b')]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "zip",
+   "category": "A",
+   "expected": "[(1, 'a'), (2, 'b')]",
+   "pyodide": {
+    "out": "[(1, 'a'), (2, 'b')]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[(1, 'a'), (2, 'b')]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "sorted",
+   "category": "A",
+   "expected": "[1, 2, 3]",
+   "pyodide": {
+    "out": "[1, 2, 3]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[1, 2, 3]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "type",
+   "category": "A",
+   "expected": "float",
+   "pyodide": {
+    "out": "float",
+    "err": null
+   },
+   "cpython": {
+    "out": "float",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "int",
+   "category": "A",
+   "expected": "43",
+   "pyodide": {
+    "out": "43",
+    "err": null
+   },
+   "cpython": {
+    "out": "43",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "str",
+   "category": "A",
+   "expected": "100円",
+   "pyodide": {
+    "out": "100円",
+    "err": null
+   },
+   "cpython": {
+    "out": "100円",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "list",
+   "category": "A",
+   "expected": "['a', 'b', 'c']",
+   "pyodide": {
+    "out": "['a', 'b', 'c']",
+    "err": null
+   },
+   "cpython": {
+    "out": "['a', 'b', 'c']",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "dict",
+   "category": "A",
+   "expected": "{'a': 1, 'b': 2}",
+   "pyodide": {
+    "out": "{'a': 1, 'b': 2}",
+    "err": null
+   },
+   "cpython": {
+    "out": "{'a': 1, 'b': 2}",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "set",
+   "category": "A",
+   "expected": "[1, 2, 3]",
+   "pyodide": {
+    "out": "[1, 2, 3]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[1, 2, 3]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "tuple",
+   "category": "A",
+   "expected": "(1, 2)",
+   "pyodide": {
+    "out": "(1, 2)",
+    "err": null
+   },
+   "cpython": {
+    "out": "(1, 2)",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "abs",
+   "category": "A",
+   "expected": "5",
+   "pyodide": {
+    "out": "5",
+    "err": null
+   },
+   "cpython": {
+    "out": "5",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "round",
+   "category": "A",
+   "expected": "3.14",
+   "pyodide": {
+    "out": "3.14",
+    "err": null
+   },
+   "cpython": {
+    "out": "3.14",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "open",
+   "category": "A",
+   "expected": "hello",
+   "pyodide": {
+    "out": "hello",
+    "err": null
+   },
+   "cpython": {
+    "out": "hello",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "input",
+   "category": "A",
+   "expected": "名前: タロウ\nこんにちは、タロウさん",
+   "pyodide": {
+    "out": "名前: タロウ\nこんにちは、タロウさん",
+    "err": null
+   },
+   "cpython": {
+    "out": "名前: タロウ\nこんにちは、タロウさん",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "isinstance",
+   "category": "A",
+   "expected": "True",
+   "pyodide": {
+    "out": "True",
+    "err": null
+   },
+   "cpython": {
+    "out": "True",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "map",
+   "category": "A",
+   "expected": "['1', '2', '3']",
+   "pyodide": {
+    "out": "['1', '2', '3']",
+    "err": null
+   },
+   "cpython": {
+    "out": "['1', '2', '3']",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "filter",
+   "category": "A",
+   "expected": "[0, 2, 4]",
+   "pyodide": {
+    "out": "[0, 2, 4]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[0, 2, 4]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "str.split",
+   "category": "A",
+   "expected": "['a', 'b', 'c']",
+   "pyodide": {
+    "out": "['a', 'b', 'c']",
+    "err": null
+   },
+   "cpython": {
+    "out": "['a', 'b', 'c']",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "str.join",
+   "category": "A",
+   "expected": "2024-01-15",
+   "pyodide": {
+    "out": "2024-01-15",
+    "err": null
+   },
+   "cpython": {
+    "out": "2024-01-15",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "str.format",
+   "category": "A",
+   "expected": "2 + 3 = 5",
+   "pyodide": {
+    "out": "2 + 3 = 5",
+    "err": null
+   },
+   "cpython": {
+    "out": "2 + 3 = 5",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "list.append",
+   "category": "A",
+   "expected": "[1, 2]",
+   "pyodide": {
+    "out": "[1, 2]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[1, 2]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "list.sort",
+   "category": "A",
+   "expected": "[1, 2, 3]",
+   "pyodide": {
+    "out": "[1, 2, 3]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[1, 2, 3]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "dict.get",
+   "category": "A",
+   "expected": "なし",
+   "pyodide": {
+    "out": "なし",
+    "err": null
+   },
+   "cpython": {
+    "out": "なし",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "dict.items",
+   "category": "A",
+   "expected": "[('a', 1), ('b', 2)]",
+   "pyodide": {
+    "out": "[('a', 1), ('b', 2)]",
+    "err": null
+   },
+   "cpython": {
+    "out": "[('a', 1), ('b', 2)]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "for",
+   "category": "A",
+   "expected": "6",
+   "pyodide": {
+    "out": "6",
+    "err": null
+   },
+   "cpython": {
+    "out": "6",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "if",
+   "category": "A",
+   "expected": "成人",
+   "pyodide": {
+    "out": "成人",
+    "err": null
+   },
+   "cpython": {
+    "out": "成人",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "while",
+   "category": "A",
+   "expected": "3\n2\n1",
+   "pyodide": {
+    "out": "3\n2\n1",
+    "err": null
+   },
+   "cpython": {
+    "out": "3\n2\n1",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "with",
+   "category": "A",
+   "expected": "closed: True",
+   "pyodide": {
+    "out": "closed: True",
+    "err": null
+   },
+   "cpython": {
+    "out": "closed: True",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "try",
+   "category": "A",
+   "expected": "変換できません",
+   "pyodide": {
+    "out": "変換できません",
+    "err": null
+   },
+   "cpython": {
+    "out": "変換できません",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "math",
+   "category": "A",
+   "expected": "9.0",
+   "pyodide": {
+    "out": "9.0",
+    "err": null
+   },
+   "cpython": {
+    "out": "9.0",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "random",
+   "category": "A",
+   "expected": "b",
+   "pyodide": {
+    "out": "b",
+    "err": null
+   },
+   "cpython": {
+    "out": "b",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "json",
+   "category": "A",
+   "expected": "{\"name\": \"タロウ\", \"age\": 20}",
+   "pyodide": {
+    "out": "{\"name\": \"タロウ\", \"age\": 20}",
+    "err": null
+   },
+   "cpython": {
+    "out": "{\"name\": \"タロウ\", \"age\": 20}",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "os",
+   "category": "C",
+   "expected": "data/result.csv",
+   "pyodide": {
+    "out": "data/result.csv",
+    "err": null
+   },
+   "cpython": {
+    "out": "data/result.csv",
+    "err": null
+   },
+   "note": "パス区切りはOS依存（Windowsでは \\）",
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "datetime",
+   "category": "A",
+   "expected": "2024-02-29",
+   "pyodide": {
+    "out": "2024-02-29",
+    "err": null
+   },
+   "cpython": {
+    "out": "2024-02-29",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "numpy.array",
+   "category": "A",
+   "expected": "6",
+   "pyodide": {
+    "out": "6",
+    "err": null
+   },
+   "cpython": {
+    "out": "6",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "reference",
+   "id": "pandas.DataFrame",
+   "category": "A",
+   "expected": "30",
+   "pyodide": {
+    "out": "30",
+    "err": null
+   },
+   "cpython": {
+    "out": "30",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "variable",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "type",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "string",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "list",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "dict",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "tuple",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "set",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "function",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "argument",
+   "category": "E",
+   "pyodide": {
+    "err": "NameError"
+   },
+   "note": "add が未定義の断片",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "return-value",
+   "category": "E",
+   "pyodide": {
+    "err": "NameError"
+   },
+   "note": "add が未定義の断片",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "module",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "package",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "class",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "instance",
+   "category": "E",
+   "pyodide": {
+    "err": "NameError"
+   },
+   "note": "Dog が未定義の断片",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "inheritance",
+   "category": "E",
+   "pyodide": {
+    "err": "NameError"
+   },
+   "note": "Dog が未定義の断片",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "exception",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "generator",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "decorator",
+   "category": "E",
+   "pyodide": {
+    "err": "NameError"
+   },
+   "note": "my_decorator が未定義の断片",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "context-manager",
+   "category": "E",
+   "pyodide": {
+    "err": "FileNotFoundError"
+   },
+   "note": "a.txt が存在しない前提の断片",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "async",
+   "category": "E",
+   "pyodide": {
+    "err": null
+   },
+   "note": "something が未定義の断片（呼び出されないので実行は成功する）",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "virtualenv",
+   "category": "D",
+   "pyodide": {
+    "err": "SyntaxError"
+   },
+   "note": "シェルコマンド（Python として実行しない）",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "pip",
+   "category": "D",
+   "pyodide": {
+    "err": "SyntaxError"
+   },
+   "note": "シェルコマンド（Python として実行しない）",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "test",
+   "category": "E",
+   "pyodide": {
+    "err": null
+   },
+   "note": "add が未定義（関数定義のみで呼ばれない）",
+   "match": null
+  },
+  {
+   "kind": "glossary",
+   "id": "type-hint",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "mutable",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "immutable",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "indentation",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "glossary",
+   "id": "library",
+   "category": "A",
+   "pyodide": {
+    "err": null
+   },
+   "cpython": {
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "eq-vs-assign",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "is-vs-eq",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "indentation-error",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "missing-colon",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "str-num-mix",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "none-handling",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "index-out-of-range",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "dict-missing-key",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "mutable-default-arg",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "shallow-copy",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "float-error",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "builtin-shadow",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "scope-misunderstanding",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "modify-while-iterating",
+   "category": "B",
+   "match": true
+  },
+  {
+   "kind": "mistake",
+   "id": "missing-return",
+   "category": "B",
+   "match": true
+  }
+ ],
+ "unverified": [
+  "Service Workerの公開URL上での動作（ローカルサーバー上のChromiumでは検証済み）",
+  "公開サイト(GitHub Pages)での動作・ファイルハッシュ照合",
+  "Safari/iOS/Firefox での動作",
+  "375px実機表示（Chromiumエミュレーションでのはみ出し検査のみ実施）",
+  "スクリーンリーダー・コントラスト比の実測",
+  "大きなファイル(>2MB)・巨大CSV",
+  "xlsx取込→pandas.read_excel の往復",
+  "キーボードのみでの全画面操作",
+  "長時間利用は40回連続実行のヒープ・応答のみ確認（数時間規模・リスナー数の直接計測は未実施）"
+ ],
+ "explicitlyNotRun": [
+  "初回ロードは実回線・実機で未測定（サンドボックスのプロキシ経由CDN）。性能値は参考値で、改善率は主張しない"
+ ],
+ "performance": {
+  "measuredAt": "2026-11-11T04:09:08.916Z",
+  "env": {
+   "browser": "Chromium 153.0.8010.12",
+   "host": "Linux sandbox, headless, local http.server, CDN through proxy",
+   "note": "1回計測または記載回数の中央値。実ユーザー環境の値ではない"
+  },
+  "editorVisibleMs": 1830,
+  "coldKernelReadyMs": 510,
+  "warmReloadToReadyMs": 1384,
+  "firstRunMs": 122,
+  "repeatRunMs": {
+   "samples": [
+    80,
+    81,
+    81,
+    82,
+    82,
+    98,
+    81
+   ],
+   "median": 81
+  },
+  "numpyLoadMs": 1282,
+  "pandasLoadMs": 2381,
+  "matplotlibLoadMs": 2196,
+  "secondImportRunMs": 97,
+  "bigOutput100kLinesMs": 669,
+  "bigOutputConsoleChars": 400035,
+  "keystrokeBlockingMs": {
+   "max": 4.2,
+   "median": 0.6
+  },
+  "viewSwitchMs": 93,
+  "searchMs": 7,
+  "longUse40Runs": {
+   "jsHeapBeforeMB": 21.7,
+   "jsHeapAfterMB": 21.7,
+   "lastRunMs": 50
+  }
+ }
+}
