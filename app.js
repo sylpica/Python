@@ -154,7 +154,8 @@ function searchAll(q){
   MISTAKES.forEach(m => { if (has(m.title, m.cause, m.phenomenon, m.bad)) hits.push({t:'間違い', title:m.title, sub:m.phenomenon, act:`__goMistake('${m.id}')`}); });
   PACKAGES.forEach(p => { if (has(p.name, p.desc, p.field, p.usage)) hits.push({t:'パッケージ', title:p.name, sub:p.desc, act:`__goEnv('pkg-${p.id}')`}); });
   ENV_LESSONS.forEach(e => { if (has(e.title, e.body, e.points.join(' '))) hits.push({t:'環境構築', title:e.title, sub:e.points[0], act:`__goEnv('${e.id}')`}); });
-  return hits;
+  const rank = h => { const t = h.title.toLowerCase().replace(/\(\)$/, ''); return t === q ? 0 : t.includes(q) ? 1 : 2; };
+  return hits.map((h, i) => [h, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(x => x[0]);
 }
 $('#globalSearch').addEventListener('input', e => {
   const q = e.target.value.trim().toLowerCase(); const box = $('#searchResults');
@@ -167,14 +168,16 @@ $('#globalSearch').addEventListener('keydown', e => { if (e.key === 'Escape') { 
 
 /* ================= Studio ================= */
 let editor = null;
-function editorValue(){ return editor ? editor.getValue() : $('#editorFallback').value; }
+let editorReady = false;   // false while Monaco is loading: never read the (empty, hidden) fallback box as the user's code
+function editorValue(){ if (editor) return editor.getValue(); const ta = $('#editorFallback'); return ta.classList.contains('hidden') ? (files[currentFile] ?? '') : ta.value; }
+function markEditorReady(){ editorReady = true; if (running <= 0) $('#runBtn').disabled = false; $('#runBtn').title = ''; }
 let suppressEdit = false;
 function setEditorValue(v){ suppressEdit = true; if (editor) editor.setValue(v); else $('#editorFallback').value = v; suppressEdit = false; }
 function binaryNote(name){ const len = Math.floor((files[name].length - 7) * 3 / 4); return `# バイナリファイル（または UTF-8 以外の文字コード）: ${name}（約 ${len.toLocaleString()} バイト）\n# エディタでは編集できません。Python からは open("${name}", "rb") や encoding 指定で読み込めます。\n`; }
 function displayText(name){ return isBinary(files[name]) ? binaryNote(name) : files[name]; }
 function updateReadOnly(){ const ro = isBinary(files[currentFile]); if (editor) editor.updateOptions({ readOnly: ro }); else $('#editorFallback').readOnly = ro; }
 function initEditor(){
-  const fallback = () => { $('#editor').classList.add('hidden'); const ta = $('#editorFallback'); ta.classList.remove('hidden'); ta.value = displayText(currentFile); ta.addEventListener('input', onEdit); updateReadOnly(); $('#editorNote').textContent = 'コードエディタ（Monaco）を読み込めなかったため、簡易エディタで表示しています。'; };
+  const fallback = () => { $('#editor').classList.add('hidden'); const ta = $('#editorFallback'); ta.classList.remove('hidden'); ta.value = displayText(currentFile); ta.addEventListener('input', onEdit); updateReadOnly(); markEditorReady(); $('#editorNote').textContent = 'コードエディタ（Monaco）を読み込めなかったため、簡易エディタで表示しています。'; };
   if (!window.require) return fallback();
   try {
     window.require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } });
@@ -187,7 +190,7 @@ function initEditor(){
       editor.onDidChangeCursorPosition(() => { if (lastDiag) renderDiagnostics(lastDiag); });
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCurrent);
       editor.onMouseDown(e => { if (e.event.detail === 2) lookupWordAtCursor(); });
-      $('#editorFallback').classList.add('hidden'); updateReadOnly();
+      $('#editorFallback').classList.add('hidden'); updateReadOnly(); markEditorReady();
       runDiagnostics();
     }, fallback);
   } catch(e){ fallback(); }
@@ -299,9 +302,9 @@ function mergeChanges(ch){
   return msg;
 }
 let running = 0;
-function setRunning(d){ running += d; $('#runBtn').disabled = running > 0; $('#runState').textContent = running > 0 ? '実行中…' : ''; $('#stopBtn').disabled = running <= 0; }
+function setRunning(d){ running += d; $('#runBtn').disabled = running > 0 || !editorReady; $('#runState').textContent = running > 0 ? '実行中…' : ''; $('#stopBtn').disabled = running <= 0; }
 async function runCurrent(){
-  if (running > 0) return;   // one Studio run at a time (button is disabled too)
+  if (running > 0 || !editorReady) return;   // one Studio run at a time (button is disabled too)
   if (!isBinary(files[currentFile])) files[currentFile] = editorValue();
   saveFiles();
   if (!/\.py$/.test(currentFile)) { $('#console').textContent = `「${currentFile}」は Python ファイル（.py）ではないため実行できません。`; return; }
@@ -465,10 +468,22 @@ $('#nbCells').addEventListener('input', e => {
   nbCells[i].source = e.target.value; saveNotebook();
   if (nbCells[i].type === 'markdown') { const md = e.target.parentElement.querySelector('.nb-md'); if (md) md.innerHTML = renderMarkdown(e.target.value); }
 });
+let nbTabPass = false;
+$('#nbCells').addEventListener('keydown', e => {
+  const ta = e.target; if (ta.dataset.cell == null || ta.tagName !== 'TEXTAREA') return;
+  const code = nbCells[ta.dataset.cell] && nbCells[ta.dataset.cell].type === 'code';
+  if (e.key === 'Escape') { nbTabPass = true; return; }
+  if (code && e.key === 'Tab' && !e.shiftKey && !nbTabPass && !e.ctrlKey && !e.metaKey) { e.preventDefault(); ta.setRangeText('    ', ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); return; }
+  nbTabPass = false;
+  if (code && e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey && ta.selectionStart === ta.selectionEnd) {
+    const before = ta.value.slice(0, ta.selectionStart); const line = before.slice(before.lastIndexOf('\n') + 1); const indent = line.match(/^ */)[0] + (/:\s*$/.test(line) ? '    ' : '');
+    if (indent) { e.preventDefault(); ta.setRangeText('\n' + indent, ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+});
 $('#nbCells').addEventListener('keydown', e => { const i = e.target.dataset.cell; if (i != null && (e.ctrlKey || e.metaKey || e.shiftKey) && e.key === 'Enter' && nbCells[i].type === 'code') { e.preventDefault(); runCell(Number(i)); } });
 async function runCell(i){
   const c = nbCells[i]; const out = $('#nbOut' + i); if (out) out.innerHTML = '<span class="cnote">実行中…</span>';
-  const r = await runPython(c.source, { files, stdin: $('#stdinBox').value, wantLast: true, filename: `<cell ${i + 1}>` });
+  const r = await runPython(c.source, { files, stdin: $('#stdinBox').value, wantLast: true, filename: `セル ${i + 1}` });
   const changeMsg = mergeChanges(r.changes);
   c.count = r.error && r.error.type === 'Interrupted' ? null : ++nbExecCount;
   c.output = { segs: r.segs, result: r.result, images: r.images, error: r.error, note: [r.note, changeMsg].filter(Boolean).join('\n') || null };
@@ -508,8 +523,9 @@ function renderLessonList(){
 }
 $('#lessonFilter').addEventListener('input', renderLessonList);
 function relatedQuizzes(lessonId){ return QUIZZES.filter(z => z.lesson === lessonId); }
+const reveal = id => { if (matchMedia('(max-width:900px)').matches) { const el = document.getElementById(id); if (el) el.scrollIntoView({ block: 'start' }); } };
 function selectLesson(id){
-  const l = lessonById[id]; if (!l) return; renderLessonList();
+  const l = lessonById[id]; if (!l) return; renderLessonList(); setTimeout(() => reveal('lessonDetail'), 0);
   const qs = relatedQuizzes(id);
   $('#lessonDetail').innerHTML = `<h2>${esc(l.title)}</h2><div class="kv">${esc(l.level)}・${esc(l.category)}</div>
     <p><b>学習目標:</b> ${esc(l.goal)}</p>
@@ -555,7 +571,7 @@ function labelOf(key){
   if (kind === 'bug') { const c = BUGS.find(x => x.id === id); return c ? 'バグ修正: ' + c.title : key; }
   return key;
 }
-function setQmode(m){ qmode = m; $$('.qmode').forEach(x => { x.classList.toggle('active', x.dataset.qmode === m); x.setAttribute('aria-selected', x.dataset.qmode === m); }); }
+function setQmode(m){ qmode = m; $$('.qmode').forEach(x => { x.classList.toggle('active', x.dataset.qmode === m); x.setAttribute('aria-pressed', x.dataset.qmode === m); }); }
 function startQuiz(){
   const area = $('#quizArea'); $('#quizScore').textContent = '';
   if (qmode === 'choice') { quizQueue = shuffled(QUIZZES).slice(0, 10).map(withShuffledOptions); quizIdx = 0; quizRight = 0; showChoice(); }
@@ -646,7 +662,7 @@ function renderRefList(){
 $('#refSearch').addEventListener('input', renderRefList);
 $('#refSort').addEventListener('change', renderRefList);
 function selectRef(id){
-  const r = refById[id]; if (!r) return; renderRefList();
+  const r = refById[id]; if (!r) return; renderRefList(); setTimeout(() => reveal('refDetail'), 0);
   $('#refDetail').innerHTML = `<h2>${esc(r.name)}</h2><div class="kv">${esc(r.category)}・重要度 ${esc(r.importance)}・${esc(r.level)}</div>
   <p>${esc(r.summary)}</p><h3>構文</h3><pre>${esc(r.syntax)}</pre>
   <p><b>引数:</b> ${esc(r.args)}<br><b>戻り値:</b> ${esc(r.returns)}</p>
@@ -673,7 +689,7 @@ function renderGlossList(){
 $('#glossSearch').addEventListener('input', renderGlossList);
 $('#glossSort').addEventListener('change', renderGlossList);
 function selectTerm(id){
-  const g = termById[id]; if (!g) return; renderGlossList();
+  const g = termById[id]; if (!g) return; renderGlossList(); setTimeout(() => reveal('glossDetail'), 0);
   const lessons = LESSONS.filter(l => (l.terms || []).includes(id));
   $('#glossDetail').innerHTML = `<h2>${esc(g.ja)} <span class="kv">${esc(g.en)}</span></h2><div class="kv">重要度 ${esc(g.importance)}</div>
   <p><b>定義:</b> ${esc(g.def)}</p><p><b>やさしく言うと:</b> ${esc(g.easy)}</p>
@@ -691,7 +707,7 @@ function renderMistakeList(){
 }
 $('#mistakeSearch').addEventListener('input', renderMistakeList);
 function selectMistake(id){
-  const m = MISTAKES.find(x => x.id === id); if (!m) return; renderMistakeList();
+  const m = MISTAKES.find(x => x.id === id); if (!m) return; renderMistakeList(); setTimeout(() => reveal('mistakeDetail'), 0);
   $('#mistakeDetail').innerHTML = `<h2>${esc(m.title)}</h2>
   <h3>誤ったコード</h3><pre>${esc(m.bad)}</pre>
   <p><b>起きる現象:</b> ${esc(m.phenomenon)}</p><p><b>原因:</b> ${esc(m.cause)}</p>
@@ -708,7 +724,7 @@ $('#mistakeDetail').addEventListener('click', e => {
 function renderEnv(){
   $('#envList').innerHTML = ENV_LESSONS.map(e => `<div class="card" id="env-${e.id}"><h4>${esc(e.title)}</h4><p>${esc(e.body)}</p><ul>${e.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>${e.official ? `<p class="kv"><a href="${esc(e.official)}" target="_blank" rel="noopener">公式資料</a></p>` : ''}</div>`).join('');
   $('#pkgTable').innerHTML = `<div class="table-wrap"><table><tr><th>パッケージ</th><th>分野</th><th>用途</th><th>代表的な使い方</th><th>通常環境への導入</th><th>ブラウザ内（Pyodide 0.26.4）</th><th>公式</th></tr>
-  ${PACKAGES.map(p => `<tr id="env-pkg-${p.id}"><td><b>${esc(p.name)}</b></td><td>${esc(p.field)}</td><td>${esc(p.desc)}</td><td>${esc(p.usage)}</td><td><code>${esc(p.install)}</code></td><td><span class="badge ${/^import で利用可/.test(p.browser) ? 'ok' : ''}">${esc(p.browser)}</span>${p.browserNote ? `<div class="meta">${esc(p.browserNote)}</div>` : ''}${p.sample ? `<div><button data-pkg-try="${p.id}">サンプルを実行</button></div>` : ''}</td><td><a href="${esc(p.official)}" target="_blank" rel="noopener">公式</a></td></tr>`).join('')}</table></div>`;
+  ${PACKAGES.map(p => `<tr id="env-pkg-${p.id}"><td data-l="パッケージ"><b>${esc(p.name)}</b></td><td data-l="分野">${esc(p.field)}</td><td data-l="用途">${esc(p.desc)}</td><td data-l="代表的な使い方">${esc(p.usage)}</td><td data-l="通常環境への導入"><code>${esc(p.install)}</code></td><td data-l="ブラウザ内"><span class="badge ${/^import で利用可/.test(p.browser) ? 'ok' : ''}">${esc(p.browser)}</span>${p.browserNote ? `<div class="meta">${esc(p.browserNote)}</div>` : ''}${p.sample ? `<div><button data-pkg-try="${p.id}">サンプルを実行</button></div>` : ''}</td><td data-l="公式"><a href="${esc(p.official)}" target="_blank" rel="noopener">${esc(p.name)} 公式</a></td></tr>`).join('')}</table></div>`;
 }
 $('#pkgTable').addEventListener('click', e => { const b = e.target.closest('[data-pkg-try]'); if (!b) return; const p = PACKAGES.find(x => x.id === b.dataset.pkgTry); openInStudio('pkg_' + p.id.replace(/\W/g, '_') + '.py', p.sample); });
 
@@ -763,7 +779,7 @@ $('#wipeBtn').addEventListener('click', () => {
 });
 
 /* ================= init ================= */
-renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList(); renderTplList();
+renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList(); renderTplList(); if ($('.navbtn.active')) $('.navbtn.active').setAttribute('aria-current', 'page'); $('#runBtn').disabled = true; $('#runBtn').title = 'エディタを読み込み中です';
 $('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF'); $('#optShuffleBtn').setAttribute('aria-pressed', optShuffle);
 startQuiz(); initEditor();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

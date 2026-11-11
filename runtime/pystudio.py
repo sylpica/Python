@@ -27,6 +27,8 @@ SANDBOX_DIR = '/tmp/pystudio_sandbox'
 _INTERNAL_PREFIXES = (
     '/lib/python3.12/site-packages/pystudio',
     '/lib/python312.zip/_pyodide',
+    '/lib/python312.zip/ast.py',
+    '/lib/python3.12/ast.py',
     '/lib/python312.zip/pyodide',
     '/lib/python3.12/site-packages/_pyodide',
     '/lib/python3.12/site-packages/pyodide',
@@ -93,15 +95,27 @@ def capture_figures():
     if plt is None:
         return
     try:
-        for num in plt.get_fignums():
-            buf = io.BytesIO()
-            plt.figure(num).savefig(buf, format='png', dpi=100, bbox_inches='tight')
-            images.append(base64.b64encode(buf.getvalue()).decode('ascii'))
-        plt.close('all')
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            for num in plt.get_fignums():
+                buf = io.BytesIO()
+                plt.figure(num).savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                images.append(base64.b64encode(buf.getvalue()).decode('ascii'))
+            plt.close('all')
+        glyph = False
+        for w in caught:
+            if 'missing from' in str(w.message) and 'Glyph' in str(w.message):
+                glyph = True      # one line instead of one warning per character
+            else:
+                warnings.showwarning(w.message, w.category, w.filename, w.lineno)
+        if glyph:
+            sys.stderr.write('[グラフ] 日本語などの一部の文字は、ブラウザ版 Matplotlib の既定フォントに含まれていないため □ で表示されます。タイトルやラベルは英語にすると正しく表示されます。\n')
     except Exception as e:  # never hide the user's own output because of capture
         sys.stderr.write(f'[グラフの取得に失敗しました: {type(e).__name__}: {e}]\n')
 
 
+# pandas 2.2 prints a long pyarrow notice on first import; it is not an error and not actionable here
+warnings.filterwarnings('ignore', message=r'(?s).*Pyarrow will become a required dependency.*')
 reset()
 
 
