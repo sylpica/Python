@@ -1,6 +1,6 @@
 // Runs every suite and prints one summary. Exit code 1 if anything failed.
 import { spawnSync } from 'node:child_process';
-const suites = [['core', 'core.test.mjs'], ['engine', 'engine.test.mjs'], ['content', 'content.test.mjs'], ['e2e', 'e2e.smoke.mjs']].filter(([n]) => !(process.env.SKIP || '').split(',').includes(n));
+const suites = [['core', 'core.test.mjs'], ['engine', 'engine.test.mjs'], ['content', 'content.test.mjs'], ['e2e', 'e2e.smoke.mjs'], ['offline', 'e2e.offline.mjs']].filter(([n]) => !(process.env.SKIP || '').split(',').includes(n));
 let bad = 0;
 for (const [name, file] of suites) {
   const r = spawnSync('node', [file], { cwd: new URL('.', import.meta.url).pathname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: process.env });

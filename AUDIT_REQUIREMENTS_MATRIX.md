@@ -25,8 +25,8 @@
 | R19 リファレンス・用語集 | PARTIAL | reference.js | 42項目の実走一致・シグネチャ補正。**42項目は網羅的ではない**（組み込み関数の一部）。意味照合は人手分が残る |
 | R20 右パネル | PASS | ref-panel | e2e未網羅（ダブルクリック参照は実装、自動テストなし）→ PARTIAL寄り |
 | R21 全文検索 | PASS | searchAll | e2e: 環境教材検索→遷移。問題・パッケージも遷移先を実装 |
-| R22 保存 | PARTIAL | store, normalize* | 単体: 破損・旧形式の移行。e2e: 再読込復元。容量不足・長期利用は実機未検証 |
-| R23 PWA/オフライン | **未検証** | sw.js | 実装のみ。オフライン起動・更新は未実測 |
+| R22 保存 | PARTIAL | store, normalize* | 単体＋e2e.offline: 破損データでも起動、旧形式(schema1)の移行と原本退避、再読込復元、バックアップ往復をPASS。容量不足（QuotaExceeded）時の挙動は実測していない |
+| R23 PWA/オフライン | PARTIAL | sw.js | tests/e2e.offline: Chromium+実SWで、オンライン後にオフライン再読込→起動(1.6s)→コード実行→読込済みNumPy import、更新時に旧アプリキャッシュのみ削除（他アプリ・CDNキャッシュ保持）をPASS。**公開URL・Safari/iOSは未検証**、新規パッケージのオフライン初回取得は不可（仕様） |
 | R24 UI/UX | PARTIAL | styles.css | 6幅でのはみ出し検査はCSS上クリア（Chromium）。実機・Safari・コントラスト実測は未実施 |
-| R25 性能 | **未検証** | — | 定量測定なし（数値を記載しない） |
+| R25 性能 | PARTIAL | tests/perf.mjs | ローカルChromiumでの実測値を AUDIT_EVIDENCE.json に記録（条件付き参考値：実行中央値81ms、NumPy初回1.3s、pandas 2.4s、10万行出力0.7s、打鍵ブロック最大4ms）。実機・実回線は未測定 |
 | R26 セキュリティ | PARTIAL | esc(), renderMarkdown | Markdown/ノートブックのXSSを単体＋e2eで検証。innerHTMLの全面レビュー済み(escで統一)。Pyodide経由のネットワーク送信は制限していない（Workerはサンドボックスではない旨を明記） |

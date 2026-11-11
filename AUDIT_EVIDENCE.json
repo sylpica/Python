@@ -31,6 +31,13 @@
    "pass": 18,
    "fail": 0,
    "skip": 0
+  },
+  "offline": {
+   "total": 10,
+   "pass": 10,
+   "fail": 0,
+   "skip": 0,
+   "scope": "Chromium+実Service Worker、ローカルサーバー。オフライン再読込・起動1.6秒・更新時のキャッシュ整理・破損/旧形式データ・バックアップ往復"
   }
  },
  "counts": {
@@ -1808,17 +1815,58 @@
   }
  ],
  "unverified": [
+  "Service Workerの公開URL上での動作（ローカルサーバー上のChromiumでは検証済み）",
   "公開サイト(GitHub Pages)での動作・ファイルハッシュ照合",
-  "Service Workerのオフライン起動・更新時の実機動作",
   "Safari/iOS/Firefox での動作",
   "375px実機表示（Chromiumエミュレーションでのはみ出し検査のみ実施）",
   "スクリーンリーダー・コントラスト比の実測",
-  "長時間利用（メモリ・リスナー増殖）",
   "大きなファイル(>2MB)・巨大CSV",
   "xlsx取込→pandas.read_excel の往復",
-  "キーボードのみでの全画面操作"
+  "キーボードのみでの全画面操作",
+  "長時間利用は40回連続実行のヒープ・応答のみ確認（数時間規模・リスナー数の直接計測は未実施）"
  ],
  "explicitlyNotRun": [
-  "性能の定量測定（初回ロード/Pyodide初期化/NumPy・pandasロード時間）は未計測のため数値を記載しない"
- ]
+  "初回ロードは実回線・実機で未測定（サンドボックスのプロキシ経由CDN）。性能値は参考値で、改善率は主張しない"
+ ],
+ "performance": {
+  "measuredAt": "2026-11-11T04:09:08.916Z",
+  "env": {
+   "browser": "Chromium 153.0.8010.12",
+   "host": "Linux sandbox, headless, local http.server, CDN through proxy",
+   "note": "1回計測または記載回数の中央値。実ユーザー環境の値ではない"
+  },
+  "editorVisibleMs": 1830,
+  "coldKernelReadyMs": 510,
+  "warmReloadToReadyMs": 1384,
+  "firstRunMs": 122,
+  "repeatRunMs": {
+   "samples": [
+    80,
+    81,
+    81,
+    82,
+    82,
+    98,
+    81
+   ],
+   "median": 81
+  },
+  "numpyLoadMs": 1282,
+  "pandasLoadMs": 2381,
+  "matplotlibLoadMs": 2196,
+  "secondImportRunMs": 97,
+  "bigOutput100kLinesMs": 669,
+  "bigOutputConsoleChars": 400035,
+  "keystrokeBlockingMs": {
+   "max": 4.2,
+   "median": 0.6
+  },
+  "viewSwitchMs": 93,
+  "searchMs": 7,
+  "longUse40Runs": {
+   "jsHeapBeforeMB": 21.7,
+   "jsHeapAfterMB": 21.7,
+   "lastRunMs": 50
+  }
+ }
 }
