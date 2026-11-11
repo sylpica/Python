@@ -11,6 +11,7 @@ import { LESSONS } from '../data/lessons.js';
 import { QUIZZES, FILLS, CODING, BUGS } from '../data/quizzes.js';
 import { REFERENCE } from '../data/reference.js';
 import { GLOSSARY } from '../data/glossary.js';
+import { TEMPLATES } from '../data/templates.js';
 import { MISTAKES, PACKAGES, ENV_LESSONS } from '../data/extras.js';
 import { startWorker, ROOT } from './lib/worker-host.mjs';
 import { checkCodingAnswer } from '../lib/core.js';
@@ -50,6 +51,7 @@ async function checkExample(kind, id, code, expected, stdin = '') {
 const short = r => JSON.stringify({ exp: r.expected, pyodide: r.pyodide, cpython: r.cpython }).slice(0, 600);
 
 for (const l of LESSONS) await test(`lesson ${l.id}: output matches on CPython ${cpyVersion} and Pyodide`, async () => { const r = await checkExample('lesson', l.id, l.code, l.expected); ok(r.match, short(r)); });
+for (const tp of TEMPLATES) await test(`template ${tp.id}: output matches on CPython and Pyodide`, async () => { ok(tp.explain && tp.file && /\.py$/.test(tp.file), 'explain/file'); const r = await checkExample('template', tp.id, tp.code, tp.expected); ok(r.match, short(r)); });
 for (const r of REFERENCE) await test(`reference ${r.id}: example output matches`, async () => { const x = await checkExample('reference', r.id, r.example, r.expected, r.stdin || ''); ok(x.match, short(x)); });
 
 // glossary examples: E = fragments that intentionally rely on outside names / are syntax demos
@@ -164,7 +166,7 @@ await test('answer position / option length bias within limits', async () => {
 });
 await test('packages: browser status is one of the measured labels', async () => { for (const p of PACKAGES) ok(['import で利用可', 'micropip で追加可', '非対応', '通常環境向け'].includes(p.browser), p.id + ': ' + p.browser); });
 
-evidence.counts = { lessons: LESSONS.length, quizzes: QUIZZES.length, fills: FILLS.length, coding: CODING.length, bugs: BUGS.length, reference: REFERENCE.length, glossary: GLOSSARY.length, mistakes: MISTAKES.length, packages: PACKAGES.length, envLessons: ENV_LESSONS.length,
+evidence.counts = { templates: TEMPLATES.length, lessons: LESSONS.length, quizzes: QUIZZES.length, fills: FILLS.length, coding: CODING.length, bugs: BUGS.length, reference: REFERENCE.length, glossary: GLOSSARY.length, mistakes: MISTAKES.length, packages: PACKAGES.length, envLessons: ENV_LESSONS.length,
   examplesTotal: evidence.examples.length, examplesMatched: evidence.examples.filter(e => e.match === true).length, examplesMismatch: evidence.examples.filter(e => e.match === false).length, examplesNotExecutable: evidence.examples.filter(e => e.match === null).length };
 fs.mkdirSync(path.join(ROOT, 'tests/output'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'tests/output/content-evidence.json'), JSON.stringify(evidence, null, 1));

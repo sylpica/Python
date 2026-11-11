@@ -4,11 +4,11 @@
      that survives app updates, so Python does not have to be downloaded again after a deploy.
    - Only caches whose names start with "python-studio-" are ever deleted: other apps on the
      same origin (sylpica.github.io/…) keep their caches. */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const APP_CACHE = 'python-studio-app-' + VERSION;
 const CDN_CACHE = 'python-studio-cdn-v1';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'lib/core.js', 'worker.js', 'runtime/pystudio.py', 'runtime/pystudio_mpl.py',
-  'manifest.webmanifest', 'icon.svg', 'data/lessons.js', 'data/quizzes.js', 'data/reference.js', 'data/glossary.js', 'data/extras.js'];
+  'manifest.webmanifest', 'icon.svg', 'data/lessons.js', 'data/quizzes.js', 'data/reference.js', 'data/glossary.js', 'data/extras.js', 'data/templates.js'];
 const CDN_HOSTS = ['cdn.jsdelivr.net'];
 
 self.addEventListener('install', e => {

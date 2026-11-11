@@ -2,6 +2,7 @@ import { LESSONS } from './data/lessons.js';
 import { QUIZZES, FILLS, CODING, BUGS } from './data/quizzes.js';
 import { REFERENCE } from './data/reference.js';
 import { GLOSSARY } from './data/glossary.js';
+import { TEMPLATES } from './data/templates.js';
 import { MISTAKES, PACKAGES, ENV_LESSONS } from './data/extras.js';
 import { normalizeFiles, normalizeProgress, normalizeNotebook, renderMarkdown, explainError, checkCodingAnswer,
   nbToIpynb, ipynbToNb, validFileName, PROTOCOL, SCHEMA } from './lib/core.js';
@@ -401,6 +402,47 @@ function showSideTerm(g){
   <button class="chip" onclick="__goTerm('${g.id}')">用語詳細を開く</button>`;
 }
 $('#refWordBtn').addEventListener('click', lookupWordAtCursor);
+
+/* ----- study templates: explanation with glossary term links + load & run ----- */
+const TERM_PATTERNS = (() => {
+  const pats = [];
+  for (const g of GLOSSARY) { pats.push({ s: g.ja, id: g.id }); if (g.en && g.en.length >= 4 && !g.en.includes(' ')) pats.push({ s: g.en, id: g.id }); }
+  pats.sort((a, b) => b.s.length - a.s.length);
+  return pats;
+})();
+function linkTerms(text){
+  // single pass over the raw text so inserted markup is never rescanned
+  let out = '', i = 0;
+  while (i < text.length) {
+    let hit = null;
+    for (const p of TERM_PATTERNS) { if (text.startsWith(p.s, i)) { hit = p; break; } }
+    if (hit) { out += `<button class="term-link" onclick="__sideTerm('${hit.id}')">${esc(hit.s)}</button>`; i += hit.s.length; }
+    else { out += esc(text[i]); i += 1; }
+  }
+  return out;
+}
+let selectedTpl = null;
+function renderTplList(){
+  $('#tplList').innerHTML = TEMPLATES.map(t => `<li class="${selectedTpl === t.id ? 'active' : ''}"><button class="tpl-item" onclick="__tpl('${t.id}')">${esc(t.title)} <span class="meta">${esc(t.level)}</span></button></li>`).join('');
+}
+window.__tpl = id => {
+  selectedTpl = id; renderTplList();
+  const t = TEMPLATES.find(x => x.id === id); if (!t) return;
+  const d = $('#tplDetail'); d.classList.remove('hidden');
+  d.innerHTML = `<h4>${esc(t.title)} <span class="badge">${esc(t.level)}</span></h4>
+    <p>${linkTerms(t.explain)}</p>
+    <p class="kv">想定出力:</p><pre>${esc(t.expected)}</pre>
+    <div class="tpl-btns">
+      <button class="primary" onclick="__tplOpen('${t.id}')">エディタで開く</button>
+      <button onclick="__tplRun('${t.id}')">開いて実行</button>
+      <button onclick="__tplReset('${t.id}')">元のコードに戻す</button>
+    </div>
+    <p class="kv">解説の中の下線付きの言葉を押すと、右パネルに用語の説明が出ます。</p>`;
+};
+function tplFile(t){ if (files[t.file] == null) files[t.file] = t.code; switchFile(t.file); }
+window.__tplOpen = id => { const t = TEMPLATES.find(x => x.id === id); if (t) tplFile(t); };
+window.__tplReset = id => { const t = TEMPLATES.find(x => x.id === id); if (t && confirm('「' + t.file + '」を元のコードに戻します（編集内容は失われます）。よろしいですか？')) { files[t.file] = t.code; switchFile(t.file); } };
+window.__tplRun = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { tplFile(t); runCurrent(); } };
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && $('#view-studio').classList.contains('active') && !editor) { e.preventDefault(); runCurrent(); } });
 
 /* ================= Notebook ================= */
@@ -721,7 +763,7 @@ $('#wipeBtn').addEventListener('click', () => {
 });
 
 /* ================= init ================= */
-renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList();
+renderTabs(); renderNotebook(); renderLessonList(); renderRefList(); renderGlossList(); renderMistakeList(); renderEnv(); renderSideList(); renderTplList();
 $('#optShuffleBtn').textContent = '選択肢シャッフル: ' + (optShuffle ? 'ON' : 'OFF'); $('#optShuffleBtn').setAttribute('aria-pressed', optShuffle);
 startQuiz(); initEditor();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

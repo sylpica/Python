@@ -1,6 +1,6 @@
 {
  "generatedAt": "2026-11-10T21:11:02.990Z",
- "baseCommit": "4d9d2f5",
+ "baseCommit": "edeb1bb (main, オーナーの学習テンプレート追加を取り込み済み)",
  "environment": {
   "cpython": "3.12.3 (numpy 1.26.4, pandas 2.2.0)",
   "pyodide": "3.12.1 / Pyodide 0.26.4",
@@ -21,14 +21,14 @@
    "skip": 0
   },
   "content": {
-   "total": 185,
-   "pass": 185,
+   "total": 195,
+   "pass": 195,
    "fail": 0,
    "skip": 0
   },
   "e2e": {
-   "total": 18,
-   "pass": 18,
+   "total": 19,
+   "pass": 19,
    "fail": 0,
    "skip": 0
   },
@@ -41,6 +41,7 @@
   }
  },
  "counts": {
+  "templates": 10,
   "lessons": 30,
   "quizzes": 50,
   "fills": 6,
@@ -51,8 +52,8 @@
   "mistakes": 15,
   "packages": 14,
   "envLessons": 12,
-  "examplesTotal": 115,
-  "examplesMatched": 105,
+  "examplesTotal": 125,
+  "examplesMatched": 115,
   "examplesMismatch": 0,
   "examplesNotExecutable": 10
  },
@@ -772,6 +773,156 @@
    },
    "cpython": {
     "out": "['fig', 'kiwi', 'apple', 'banana']\n[('Hana', 25), ('Taro', 30)]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-calc",
+   "category": "A",
+   "expected": "小計: 360円\n税込: 396円",
+   "pyodide": {
+    "out": "小計: 360円\n税込: 396円",
+    "err": null
+   },
+   "cpython": {
+    "out": "小計: 360円\n税込: 396円",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-branch",
+   "category": "A",
+   "expected": "72点は B 判定です",
+   "pyodide": {
+    "out": "72点は B 判定です",
+    "err": null
+   },
+   "cpython": {
+    "out": "72点は B 判定です",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-list-loop",
+   "category": "A",
+   "expected": "合計: 108\n最大: 42\n2倍: [8, 16, 30, 32, 46, 84]",
+   "pyodide": {
+    "out": "合計: 108\n最大: 42\n2倍: [8, 16, 30, 32, 46, 84]",
+    "err": null
+   },
+   "cpython": {
+    "out": "合計: 108\n最大: 42\n2倍: [8, 16, 30, 32, 46, 84]",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-dict-count",
+   "category": "A",
+   "expected": "tea 3\ncoffee 2\njuice 1",
+   "pyodide": {
+    "out": "tea 3\ncoffee 2\njuice 1",
+    "err": null
+   },
+   "cpython": {
+    "out": "tea 3\ncoffee 2\njuice 1",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-func",
+   "category": "A",
+   "expected": "1100\n1080",
+   "pyodide": {
+    "out": "1100\n1080",
+    "err": null
+   },
+   "cpython": {
+    "out": "1100\n1080",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-strings",
+   "category": "A",
+   "expected": "Yuya Kohno\n['2026', '11', '10']\n2026/11/10\nMython",
+   "pyodide": {
+    "out": "Yuya Kohno\n['2026', '11', '10']\n2026/11/10\nMython",
+    "err": null
+   },
+   "cpython": {
+    "out": "Yuya Kohno\n['2026', '11', '10']\n2026/11/10\nMython",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-try",
+   "category": "A",
+   "expected": "5.0\nゼロでは割れません",
+   "pyodide": {
+    "out": "5.0\nゼロでは割れません",
+    "err": null
+   },
+   "cpython": {
+    "out": "5.0\nゼロでは割れません",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-class",
+   "category": "A",
+   "expected": "1\n2\n3",
+   "pyodide": {
+    "out": "1\n2\n3",
+    "err": null
+   },
+   "cpython": {
+    "out": "1\n2\n3",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-fileio",
+   "category": "A",
+   "expected": "2 行\n一行目",
+   "pyodide": {
+    "out": "2 行\n一行目",
+    "err": null
+   },
+   "cpython": {
+    "out": "2 行\n一行目",
+    "err": null
+   },
+   "match": true
+  },
+  {
+   "kind": "template",
+   "id": "tpl-csv",
+   "category": "A",
+   "expected": "売上合計: 360",
+   "pyodide": {
+    "out": "売上合計: 360",
+    "err": null
+   },
+   "cpython": {
+    "out": "売上合計: 360",
     "err": null
    },
    "match": true
