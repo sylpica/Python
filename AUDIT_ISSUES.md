@@ -14,7 +14,7 @@
 | B-06 | `asyncio.run()` が常に RuntimeError（教材レッスン async-intro は「その場で実行」で失敗していた可能性） | Pyodide は既にイベントループ上 | トップレベルの `asyncio.run(x)` を `await x` に変換（関数内は不変）。実行時に注記表示 | E |
 | B-07 | 「期待出力と一致」表示が末尾空白で誤判定／コーディング問題が出力一致のみで直書き解答も合格 | 文字列比較のみ | 空白正規化、隠し別入力（variants）で再採点。直書き・初期コードは不合格をテスト | C |
 | B-08 | 教材の事実誤り（詳細は下表 C-xx） | 手書きで未検証 | 修正し全件を実行照合 | C |
-| B-09 | Service Worker が `python-studio` 以外の他アプリのキャッシュも全削除しうる／CDN(Pyodide)を更新ごとに再取得 | 他キャッシュ全削除、CDNを同一キャッシュ | 接頭辞限定削除、CDNは別キャッシュで保持 | 未検証（実機オフライン） |
+| B-09 | Service Worker が `python-studio` 以外の他アプリのキャッシュも全削除しうる／CDN(Pyodide)を更新ごとに再取得 | 他キャッシュ全削除、CDNを同一キャッシュ | 接頭辞限定削除、CDNは別キャッシュで保持 | B（ローカル・公開URLでChromium実測） |
 | B-10 | 異常終了（Worker error / 致命エラー）で復帰手段がない、Pyodide読込失敗で無限「起動中」 | エラー処理なし | init-error通知・再試行ボタン・自動再生成・失敗時は待機中のPromiseを全解放 | B（中断→再起動のみ実測） |
 
 ## Medium
@@ -45,8 +45,8 @@
 - C-10 環境教材: Python 3.13/3.14、conda 教材を新設、Pyodide と通常Pythonの違い教材を新設、公式資料リンクを付与
 
 ## 既知の制約・未解決（修正せず明記）
-- **公開サイトへは未デプロイ**（作業ブランチ `claude/brave-ritchie-vtvzji` のみ。main/gh-pages への書込みは指示範囲外のため実施せず）。公開URLでの動作・ハッシュ照合は **未検証**
-- Service Worker のオフライン起動・更新反映は実機未検証。.github/workflows は変更していない
+- 公開: 2026-11-11 に main/gh-pages へ反映し、md5全件一致と公開URL上のE2Eを確認済み（Chromiumのみ）。旧SWを持つ既存利用者の更新経路は未実測
+- Service Worker はChromiumで実測済み。Safari/iOS・実機は未検証。.github/workflows は変更していない
 - 非同期ブロッキング呼び出し（`time.sleep` 等）は中断のみが停止手段（Worker再生成、状態は失われると明示）
 - 型チェッカーではない（診断は構文＋保守的AST）。ステップ実行・ブレークポイントは未実装
 - Matplotlib の日本語フォントは同梱なし（文字化け）

@@ -1966,8 +1966,7 @@
   }
  ],
  "unverified": [
-  "Service Workerの公開URL上での動作（ローカルサーバー上のChromiumでは検証済み）",
-  "公開サイト(GitHub Pages)での動作・ファイルハッシュ照合",
+  "旧版SW(v5/v6)をインストール済みの既存利用者が v7 へ更新される経路（ネットワーク優先方針とキャッシュ名の仕様からの推論のみ。旧版を持つプロファイルでの実測なし）",
   "Safari/iOS/Firefox での動作",
   "375px実機表示（Chromiumエミュレーションでのはみ出し検査のみ実施）",
   "スクリーンリーダー・コントラスト比の実測",
@@ -2019,5 +2018,28 @@
    "jsHeapAfterMB": 21.7,
    "lastRunMs": 50
   }
+ },
+ "publicVerification": {
+  "url": "https://sylpica.github.io/Python/",
+  "verifiedAt": "2026-11-11",
+  "deployedCommit": "68af1d5 (main) / b91213a (gh-pages)",
+  "md5Compare": {
+   "files": 15,
+   "mismatch": 0,
+   "note": "配信ファイルとリポジトリのmd5を全件照合（クエリ付き取得でCDNキャッシュ差を回避）"
+  },
+  "swVersionServed": "v7",
+  "e2eSmoke": {
+   "total": 19,
+   "pass": 19,
+   "fail": 0
+  },
+  "e2eOffline": {
+   "total": 10,
+   "pass": 10,
+   "fail": 0,
+   "offlineStartMs": 1625
+  },
+  "browser": "Chromium（新規プロファイル、Linuxサンドボックス）"
  }
 }
