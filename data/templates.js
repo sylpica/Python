@@ -2,9 +2,9 @@
 export const TEMPLATES = [
   {
     id: 'tpl-calc', title: '変数と計算', level: '入門', file: 'tpl_calc.py',
-    code: 'price = 120\ncount = 3\ntotal = price * count\ntax = total * 0.1\nprint(f"小計: {total}円")\nprint(f"税込: {int(total + tax)}円")',
+    code: 'price = 120\ncount = 3\ntotal = price * count\ntax = total * 0.1\nprint(f"小計: {total}円")\nprint(f"税込: {round(total + tax)}円")',
     expected: '小計: 360円\n税込: 396円',
-    explain: '変数に数値を代入し、計算結果を別の変数に保存する基本形です。f文字列（f"...{変数}..."）で値を文章に埋め込みます。price や count の値を変えて実行し、出力がどう変わるか確認してください。int() は型を整数に変換する関数です。'
+    explain: '変数に数値を代入し、計算結果を別の変数に保存する基本形です。f文字列（f"...{変数}..."）で値を文章に埋め込みます。price や count の値を変えて実行し、出力がどう変わるか確認してください。round() は小数を丸めて整数にする関数です（int() は小数部を切り捨てます）。'
   },
   {
     id: 'tpl-branch', title: '条件分岐（if / elif / else）', level: '入門', file: 'tpl_branch.py',
@@ -26,9 +26,9 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl-func', title: '関数の定義と引数', level: '基礎', file: 'tpl_func.py',
-    code: 'def price_with_tax(price, rate=0.1):\n    return int(price * (1 + rate))\n\nprint(price_with_tax(1000))\nprint(price_with_tax(1000, rate=0.08))',
+    code: 'def price_with_tax(price, rate=0.1):\n    return round(price * (1 + rate))\n\nprint(price_with_tax(1000))\nprint(price_with_tax(1000, rate=0.08))',
     expected: '1100\n1080',
-    explain: '関数は処理に名前を付けて再利用できるようにしたものです。引数の rate=0.1 はデフォルト引数で、省略すると 0.1 が使われます。return で戻り値を呼び出し元に返します。税率を変える、3つ目の引数を足すなど、関数の形を変えて実験してください。'
+    explain: '関数は処理に名前を付けて再利用できるようにしたものです。引数の rate=0.1 はデフォルト引数で、省略すると 0.1 が使われます。return で戻り値を呼び出し元に返します。税率を変える、3つ目の引数を足すなど、関数の形を変えて実験してください。金額は小数の誤差（0.1 や 0.15 は2進数で正確に表せません）が出やすいため、ここでは round() で丸めています。int() は切り捨てなので、誤差で1円ずれることがあります。'
   },
   {
     id: 'tpl-strings', title: '文字列の加工', level: '基礎', file: 'tpl_strings.py',

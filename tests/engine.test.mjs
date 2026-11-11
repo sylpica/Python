@@ -81,6 +81,12 @@ await test('matplotlib plt.show() captures a PNG without warnings', async () => 
 await test('two figures -> two images; open figure captured at end', async () => { const r = await run('import matplotlib.pyplot as plt\nplt.figure(); plt.plot([1])\nplt.figure(); plt.plot([2])\nplt.show()\nplt.figure(); plt.bar([1], [2])'); eq(r.images.length, 3); });
 await test('unknown module gives ModuleNotFoundError', async () => { const r = await run('import definitely_not_a_module'); eq(r.error.type, 'ModuleNotFoundError'); });
 
+// ---------- FINAL-B regressions ----------
+await test('B-05 syntax error at runtime hides Pyodide ast.py frames', async () => { const r = await run('for i in range(3)\n    print(i)', { filename: 'main.py' }); eq(r.error.type, 'SyntaxError'); ok(!/ast\.py|_pyodide|pystudio/.test(r.error.text), r.error.text); ok(/File "main.py", line 1/.test(r.error.text), r.error.text); });
+await test('B-06 missing-glyph warnings collapse into one Japanese note', async () => { const r = await run('import matplotlib.pyplot as plt\nplt.title("日本語タイトル")\nplt.plot([1, 2])\nplt.show()'); const t = w.text(r); eq((t.match(/Glyph/g) || []).length, 0, t); eq((t.match(/\[グラフ\]/g) || []).length, 1, t); eq(r.images.length, 1); });
+await test('B-07 pandas pyarrow notice is not shown', async () => { const r = await run('import pandas as pd\nprint(pd.__version__)'); eq(stdout(r), '2.2.0\n'); ok(!/Pyarrow/i.test(w.text(r)), w.text(r)); });
+await test('B-07 other warnings still appear', async () => { const r = await run('import warnings\nwarnings.warn("keep me")'); ok(/keep me/.test(w.text(r))); });
+
 // ---------- asyncio ----------
 await test('asyncio.run() works via top-level await shim', async () => { const r = await run('import asyncio\nasync def main():\n    await asyncio.sleep(0)\n    return 5\nprint(asyncio.run(main()))\nv = asyncio.run(main())\nprint(v)\ndef inner():\n    return asyncio.run\nprint(inner() is asyncio.run)'); eq(stdout(r), '5\n5\nTrue\n'); eq(r.asyncioShim, true); });
 await test('asyncio.gather order', async () => { const r = await run('import asyncio\nasync def g(n, d):\n    await asyncio.sleep(d)\n    return n\nasync def main():\n    print(await asyncio.gather(g("a", 0.02), g("b", 0)))\nasyncio.run(main())'); eq(stdout(r), "['a', 'b']\n"); });

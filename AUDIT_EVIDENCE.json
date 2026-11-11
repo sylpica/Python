@@ -15,8 +15,8 @@
    "skip": 0
   },
   "engine": {
-   "total": 64,
-   "pass": 64,
+   "total": 68,
+   "pass": 68,
    "fail": 0,
    "skip": 0
   },
@@ -27,8 +27,8 @@
    "skip": 0
   },
   "e2e": {
-   "total": 19,
-   "pass": 19,
+   "total": 22,
+   "pass": 22,
    "fail": 0,
    "skip": 0
   },
@@ -2041,5 +2041,16 @@
    "offlineStartMs": 1625
   },
   "browser": "Chromium（新規プロファイル、Linuxサンドボックス）"
+ },
+ "finalAudits": {
+  "B": {
+   "status": "findings-fixed-rerun-pending",
+   "coverage": "レッスン30/30・四択50/50・リファレンス42/42・用語34/34・間違い15/15・外部URL72件200を確認、画面54枚(約20枚を目視)",
+   "fixedHighMedium": "High3, Medium11 を修正"
+  },
+  "A": {
+   "status": "not-completed",
+   "reason": "エージェントがAPIレート制限(429)で中断"
+  }
  }
 }

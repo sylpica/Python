@@ -958,7 +958,7 @@ export const CODING = [
     "expect": "{'a': 2, 'b': 1, 'c': 1}"
    }
   ],
-  "hint": "for 文で1文字ずつ取り出し、counts[ch] = counts.get(ch, 0) + 1 と数えます（collections.Counter を使っても構いません）",
+  "hint": "for 文で1文字ずつ取り出し、counts[ch] = counts.get(ch, 0) + 1 と数えます。collections.Counter を使う場合は、表示が Counter(...) にならないよう dict(Counter(s)) と変換します",
   "lesson": "dict-operations"
  },
  {

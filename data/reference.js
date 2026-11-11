@@ -173,8 +173,8 @@ export const REFERENCE = [
   "importance": "最重要",
   "level": "基礎",
   "summary": "イテラブルを並べ替えた新しいリストを返す関数。",
-  "syntax": "sorted(iterable, key=None, reverse=False)",
-  "args": "iterable: 対象、key: 並べ替え基準、reverse: True で降順",
+  "syntax": "sorted(iterable, /, *, key=None, reverse=False)",
+  "args": "iterable: 対象、key: 並べ替え基準（key と reverse はキーワードで指定する）、reverse: True で降順",
   "returns": "list: 並べ替え済みの新しいリスト",
   "example": "print(sorted([3, 1, 2]))",
   "expected": "[1, 2, 3]",
@@ -387,7 +387,7 @@ export const REFERENCE = [
   "returns": "ファイルオブジェクト",
   "example": "with open(\"memo.txt\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"hello\")\nwith open(\"memo.txt\", encoding=\"utf-8\") as f:\n    print(f.read())",
   "expected": "hello",
-  "pitfalls": "encoding を省略すると環境依存になり文字化けの原因になる。with を使わないと閉じ忘れることがある。",
+  "pitfalls": "Python 3.14 以前では encoding を省略すると環境依存（Windows では UTF-8 以外）になり文字化けの原因になる（3.15 から既定は UTF-8）。常に明示すると確実。with を使わないと閉じ忘れることがある。",
   "related": [
    "with",
    "input"
