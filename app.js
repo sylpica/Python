@@ -4,14 +4,14 @@ import { REFERENCE } from './data/reference.js';
 import { GLOSSARY } from './data/glossary.js';
 import { TEMPLATES } from './data/templates.js';
 import { MISTAKES, PACKAGES, ENV_LESSONS } from './data/extras.js';
-import { normalizeFiles, normalizeProgress, normalizeNotebook, renderMarkdown, explainError, checkCodingAnswer,
+import { isB64, nameConflict, normalizeFiles, normalizeProgress, normalizeNotebook, renderMarkdown, explainError, checkCodingAnswer,
   nbToIpynb, ipynbToNb, validFileName, PROTOCOL, SCHEMA } from './lib/core.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const IMP = {'最重要':0,'重要':1,'応用':2,'専門':3};
-const isBinary = v => typeof v === 'string' && v.startsWith('base64:');
+const isBinary = isB64;
 
 /* ---------- banner (storage failures, kernel problems, updates) ---------- */
 function banner(text, kind = 'warn', actions = ''){
@@ -27,7 +27,7 @@ const store = {
   set(k, v){
     try { localStorage.setItem(PREFIX + k, JSON.stringify(v)); return true; }
     catch(e){
-      if (!storageWarned) { storageWarned = true; banner('端末への保存に失敗しました（保存容量の不足など）。大きなファイルや Notebook の画像出力を減らすか、学習状況タブからバックアップを書き出してください。', 'error'); }
+      { banner('端末への保存に失敗しました（保存容量の不足など）。大きなファイルや Notebook の画像出力を減らすか、学習状況タブからバックアップを書き出してください。', 'error'); }
       return false;
     }
   },
@@ -45,12 +45,22 @@ if (files[currentFile] == null) currentFile = Object.keys(files)[0];
 let progress = normalizeProgress(store.get('progress', null), QUIZZES);
 let nbCells = normalizeNotebook(store.get('notebook', null));
 let nbMeta = store.get('notebookMeta', null);
-function saveProgress(){ store.set('progress', progress); }
-function saveFiles(){ store.set('files', files); store.set('currentFile', currentFile); }
-function saveNotebook(){ store.set('notebook', nbCells); if (nbMeta) store.set('notebookMeta', nbMeta); }
+function saveProgress(){ return store.set('progress', progress); }
+function saveFiles(){ const a = store.set('files', files), b = store.set('currentFile', currentFile); return a && b; }
+function saveNotebook(){ const a = store.set('notebook', nbCells); const b = nbMeta ? store.set('notebookMeta', nbMeta) : true; return a && b; }
+// keep the stored text byte-exact (e.g. CRLF) unless the user really edited it
+window.addEventListener('storage', e => {
+  if (e.key !== PREFIX + 'files' || !e.newValue) return;
+  try {
+    const other = normalizeFiles(JSON.parse(e.newValue)); let added = 0;
+    for (const [k, v] of Object.entries(other)) if (files[k] == null) { files[k] = v; added++; }
+    if (added) { saveFiles(); renderTabs(); banner(`別のタブで作成されたファイルを ${added} 件取り込みました。複数のタブで同時に編集すると、同じ名前のファイルは最後に書いた内容が残ります。`, 'warn'); }
+  } catch(err){}
+});
+function syncCurrent(){ const f = currentFile; if (files[f] == null || isBinary(files[f])) return; const v = editorValue(); if (v.replace(/\r\n/g, '\n') !== String(files[f]).replace(/\r\n/g, '\n')) files[f] = v; }
 
 /* ---------- kernel (Pyodide worker) ---------- */
-let worker = null, gen = 0, runSeq = 0, kernelState = 'starting', startTimer = null;
+let worker = null, gen = 0, runSeq = 0, kernelState = 'starting', startTimer = null, startTimer2 = null;
 const pending = new Map();   // id -> {resolve, onStream, gen}
 function setStatus(t){ $('#kernelStatus').textContent = t; }
 function newWorker(){
@@ -58,18 +68,19 @@ function newWorker(){
   flushPending('カーネルが再起動されたため、この実行は完了しませんでした');
   const myGen = ++gen; kernelState = 'starting'; setStatus('カーネル起動中…（初回は Python 本体を数MBダウンロードします）'); $('#kernelRetry').classList.add('hidden');
   worker = new Worker('worker.js');
-  clearTimeout(startTimer);
+  clearTimeout(startTimer); clearTimeout(startTimer2);
+  startTimer2 = setTimeout(() => { if (myGen === gen && kernelState === 'starting') { kernelState = 'failed'; setStatus('カーネルの起動がタイムアウトしました（回線が不安定、またはCDNに接続できません）。'); $('#kernelRetry').classList.remove('hidden'); flushPending('Python の起動がタイムアウトしました。「再試行」を押してください。'); } }, 90000);
   startTimer = setTimeout(() => { if (myGen === gen && kernelState === 'starting') setStatus('カーネル起動に時間がかかっています。回線状況を確認してください（オフライン時は過去に一度読み込んだ場合のみ起動できます）。'); }, 30000);
   worker.onmessage = ev => {
     if (myGen !== gen) return;               // reply from a replaced worker
     const m = ev.data;
     if (m.type === 'ready') {
-      kernelState = 'ready'; clearTimeout(startTimer);
+      kernelState = 'ready'; clearTimeout(startTimer); clearTimeout(startTimer2);
       if (m.protocol !== PROTOCOL) { banner('アプリが更新されました。ページを再読み込みしてください（編集中のコードは保存済みです）。', 'warn', '<button onclick="location.reload()">再読み込み</button>'); }
       setStatus('カーネル準備完了（Python ' + m.python + ' / Pyodide 0.26.4）'); runDiagnostics();
       return;
     }
-    if (m.type === 'init-error') { kernelState = 'failed'; clearTimeout(startTimer); setStatus('カーネルを起動できませんでした: ' + m.error); $('#kernelRetry').classList.remove('hidden'); flushPending('Python を起動できませんでした（オフライン、または CDN に接続できません）。「再試行」を押してください。'); return; }
+    if (m.type === 'init-error') { kernelState = 'failed'; clearTimeout(startTimer); clearTimeout(startTimer2); setStatus('カーネルを起動できませんでした: ' + m.error); $('#kernelRetry').classList.remove('hidden'); flushPending('Python を起動できませんでした（オフライン、または CDN に接続できません）。「再試行」を押してください。'); return; }
     if (m.type === 'status') { setStatus(m.text); return; }
     if (m.type === 'stream') { const p = pending.get(m.id); if (p && p.onStream) p.onStream(m.segs); return; }
     if (m.id != null && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); p.resolve(m); }
@@ -84,10 +95,15 @@ function callWorker(msg, onStream){
 }
 let runChain = Promise.resolve();
 function enqueue(fn){ const p = runChain.then(fn); runChain = p.then(() => {}, () => {}); return p; }
+let inflight = 0;   // runs from anywhere (Studio, Notebook, lessons, quizzes): the Stop button follows this, not just Studio
+const syncStop = () => { for (const id of ['#stopBtn', '#nbStop']) $(id).disabled = inflight <= 0; };
 function runPython(code, opts = {}, onStream){
   // every execution / reset goes through one queue: no interleaved stdout or kernel state
-  return enqueue(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin ?? '', isolated: !!opts.isolated,
+  inflight++; syncStop();
+  const p = enqueue(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin ?? '', isolated: !!opts.isolated,
     wantLast: !!opts.wantLast, filename: opts.filename || 'main.py', stream: !!onStream }, onStream));
+  p.finally(() => { inflight--; syncStop(); });
+  return p;
 }
 function flushPending(reason){
   for (const [, p] of pending) p.resolve({ type:'result', segs:[{ s:'err', t: reason }], error:{ type:'Interrupted', message: reason, text: reason }, images:[], vars:[], ms:0, syntax:null, warnings:[] });
@@ -168,20 +184,24 @@ $('#globalSearch').addEventListener('keydown', e => { if (e.key === 'Escape') { 
 
 /* ================= Studio ================= */
 let editor = null;
-let editorReady = false;   // false while Monaco is loading: never read the (empty, hidden) fallback box as the user's code
+let editorReady = false; const readyWaiters = [];
+const whenEditorReady = fn => { if (editorReady) fn(); else { setStatus('エディタを読み込み中です。読み込み後に実行します…'); readyWaiters.push(fn); } };   // false while Monaco is loading: never read the (empty, hidden) fallback box as the user's code
 function editorValue(){ if (editor) return editor.getValue(); const ta = $('#editorFallback'); return ta.classList.contains('hidden') ? (files[currentFile] ?? '') : ta.value; }
-function markEditorReady(){ editorReady = true; if (running <= 0) $('#runBtn').disabled = false; $('#runBtn').title = ''; }
+function markEditorReady(){ editorReady = true; readyWaiters.splice(0).forEach(fn => fn()); if (running <= 0) $('#runBtn').disabled = false; $('#runBtn').title = ''; }
 let suppressEdit = false;
 function setEditorValue(v){ suppressEdit = true; if (editor) editor.setValue(v); else $('#editorFallback').value = v; suppressEdit = false; }
 function binaryNote(name){ const len = Math.floor((files[name].length - 7) * 3 / 4); return `# バイナリファイル（または UTF-8 以外の文字コード）: ${name}（約 ${len.toLocaleString()} バイト）\n# エディタでは編集できません。Python からは open("${name}", "rb") や encoding 指定で読み込めます。\n`; }
 function displayText(name){ return isBinary(files[name]) ? binaryNote(name) : files[name]; }
 function updateReadOnly(){ const ro = isBinary(files[currentFile]); if (editor) editor.updateOptions({ readOnly: ro }); else $('#editorFallback').readOnly = ro; }
+function loadScript(src, ms){ return new Promise((res, rej) => { const s = document.createElement('script'); const t = setTimeout(() => rej(new Error('timeout')), ms); s.onload = () => { clearTimeout(t); res(); }; s.onerror = () => { clearTimeout(t); rej(new Error('load error')); }; s.src = src; document.head.appendChild(s); }); }
 function initEditor(){
-  const fallback = () => { $('#editor').classList.add('hidden'); const ta = $('#editorFallback'); ta.classList.remove('hidden'); ta.value = displayText(currentFile); ta.addEventListener('input', onEdit); updateReadOnly(); markEditorReady(); $('#editorNote').textContent = 'コードエディタ（Monaco）を読み込めなかったため、簡易エディタで表示しています。'; };
-  if (!window.require) return fallback();
-  try {
+  let settled = false, timer = null;
+  const fallback = () => { if (settled) return; settled = true; clearTimeout(timer); $('#editor').classList.add('hidden'); const ta = $('#editorFallback'); ta.classList.remove('hidden'); ta.value = displayText(currentFile); ta.addEventListener('input', onEdit); updateReadOnly(); markEditorReady(); $('#editorNote').textContent = 'コードエディタ（Monaco）を読み込めなかったため、簡易エディタで表示しています。'; };
+  timer = setTimeout(fallback, 20000);   // Monaco on a hanging CDN must never leave the page without an editor
+  loadScript('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js', 10000).then(() => {
     window.require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs' } });
     window.require(['vs/editor/editor.main'], () => {
+      if (settled) return; settled = true; clearTimeout(timer);
       editor = monaco.editor.create($('#editor'), { value: displayText(currentFile), language: 'python', automaticLayout: true,
         fontSize: Number($('#fontSize').value) || 14, minimap: { enabled: false }, tabSize: 4, insertSpaces: true,
         ariaLabel: 'Python コードエディタ', theme: document.documentElement.dataset.theme === 'dark' ? 'vs-dark' : 'vs' });
@@ -193,7 +213,7 @@ function initEditor(){
       $('#editorFallback').classList.add('hidden'); updateReadOnly(); markEditorReady();
       runDiagnostics();
     }, fallback);
-  } catch(e){ fallback(); }
+  }).catch(fallback);
 }
 let diagTimer = null, lastEditAt = 0;
 function onEdit(){
@@ -250,10 +270,14 @@ function renderTabs(){
 }
 function switchFile(f){
   if (files[f] == null) return;
-  if (!isBinary(files[currentFile]) && files[currentFile] != null) files[currentFile] = editorValue();
+  syncCurrent();
   currentFile = f; setEditorValue(displayText(f)); updateReadOnly(); saveFiles(); renderTabs(); runDiagnostics();
 }
-function openInStudio(name, code){ files[name] = code; saveFiles(); switchFile(name); showView('studio'); }
+function openInStudio(name, code){
+  syncCurrent();
+  if (files[name] != null && files[name] !== code && !confirm(`「${name}」には既に別の内容（編集済みの可能性があります）があります。元のコードで上書きしますか？\n［キャンセル］で、今あるファイルをそのまま開きます。`)) { switchFile(name); showView('studio'); return; }
+  files[name] = code; saveFiles(); switchFile(name); showView('studio');
+}
 $('#tabBar').addEventListener('click', e => { const b = e.target.closest('[data-file]'); if (b) switchFile(b.dataset.file); });
 let fileRowMode = 'new', renameFrom = null;
 function openFileRow(mode, from){
@@ -270,7 +294,7 @@ $('#fileList').addEventListener('click', e => {
 });
 $('#addFileBtn').addEventListener('click', () => { const row = $('#newFileRow'); if (!row.classList.contains('hidden') && fileRowMode === 'new') row.classList.add('hidden'); else openFileRow('new'); });
 function submitFileRow(){
-  const name = $('#newFileName').value.trim(); const err = validFileName(name);
+  const name = $('#newFileName').value.trim(); const err = validFileName(name) || (files[name] == null || fileRowMode === 'rename' ? nameConflict(name, files, renameFrom) : null);
   if (err) { $('#fileRowError').textContent = err; return; }
   if (fileRowMode === 'new') {
     if (files[name] != null) { switchFile(name); }
@@ -302,10 +326,10 @@ function mergeChanges(ch){
   return msg;
 }
 let running = 0;
-function setRunning(d){ running += d; $('#runBtn').disabled = running > 0 || !editorReady; $('#runState').textContent = running > 0 ? '実行中…' : ''; $('#stopBtn').disabled = running <= 0; }
+function setRunning(d){ running += d; $('#runBtn').disabled = running > 0 || !editorReady; $('#runState').textContent = running > 0 ? '実行中…' : ''; }
 async function runCurrent(){
   if (running > 0 || !editorReady) return;   // one Studio run at a time (button is disabled too)
-  if (!isBinary(files[currentFile])) files[currentFile] = editorValue();
+  syncCurrent();
   saveFiles();
   if (!/\.py$/.test(currentFile)) { $('#console').textContent = `「${currentFile}」は Python ファイル（.py）ではないため実行できません。`; return; }
   const code = files[currentFile];
@@ -328,18 +352,21 @@ function renderVars(vars){
   $('#varsView').innerHTML = vars && vars.length ? `<table class="vars"><tr><th>名前</th><th>型</th><th>値</th></tr>${vars.map(v => `<tr><td>${esc(v.name)}</td><td>${esc(v.type)}${v.len != null ? `<span class="meta">（len ${v.len}）</span>` : ''}</td><td><code>${esc(v.value)}</code></td></tr>`).join('')}</table>` : '（変数なし）';
 }
 $('#runBtn').addEventListener('click', runCurrent);
-$('#stopBtn').addEventListener('click', () => {
+function stopKernel(){
   if (confirm('実行を中断します。Python カーネルを作り直すため、変数などの状態は失われます（ファイルは残ります）。よろしいですか？')) {
     newWorker(); nbExecCount = 0; $('#varsView').textContent = '（中断によりカーネルを再起動しました）';
   }
-});
+}
+$('#stopBtn').addEventListener('click', stopKernel);
+$('#nbStop').addEventListener('click', stopKernel);   // the Notebook view has no Studio toolbar: it needs its own stop button
 $('#resetKernelBtn').addEventListener('click', async () => { await enqueue(() => callWorker({ type:'reset' })); nbExecCount = 0; renderVars([]); setStatus('カーネルをリセットしました（変数・読み込んだ自作モジュールを消去）'); });
 $$('.pkg-btns button').forEach(b => b.addEventListener('click', () => { setStatus(b.dataset.pkg + ' を読み込み中…'); enqueue(() => callWorker({ type:'load', packages:[b.dataset.pkg] })); }));
-$('#sampleCsvBtn').addEventListener('click', () => { files['sales.csv'] = 'month,sales\n1,120\n2,150\n3,90\n4,200\n'; saveFiles(); renderTabs(); setStatus('sales.csv を作成しました。pd.read_csv("sales.csv") で読み込めます'); });
+$('#sampleCsvBtn').addEventListener('click', () => { if (files['sales.csv'] != null && !confirm('「sales.csv」は既にあります。サンプルの内容で上書きしますか？')) return; files['sales.csv'] = 'month,sales\n1,120\n2,150\n3,90\n4,200\n'; saveFiles(); renderTabs(); setStatus('sales.csv を作成しました。pd.read_csv("sales.csv") で読み込めます'); });
 $('#fileUpload').addEventListener('change', async e => {
   const list = [...e.target.files]; if (!list.length) return;
   for (const f of list) {
     const err = validFileName(f.name); if (err) { alert(`「${f.name}」は取り込めません: ${err}`); continue; }
+    const nc = nameConflict(f.name, files); if (nc) { alert(`「${f.name}」は取り込めません: ${nc}`); continue; }
     if (files[f.name] != null && !confirm(`「${f.name}」は既にあります。上書きしますか？`)) continue;
     const buf = new Uint8Array(await f.arrayBuffer());
     let text = null;
@@ -445,7 +472,7 @@ window.__tpl = id => {
 function tplFile(t){ if (files[t.file] == null) files[t.file] = t.code; switchFile(t.file); }
 window.__tplOpen = id => { const t = TEMPLATES.find(x => x.id === id); if (t) tplFile(t); };
 window.__tplReset = id => { const t = TEMPLATES.find(x => x.id === id); if (t && confirm('「' + t.file + '」を元のコードに戻します（編集内容は失われます）。よろしいですか？')) { files[t.file] = t.code; switchFile(t.file); } };
-window.__tplRun = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { tplFile(t); runCurrent(); } };
+window.__tplRun = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { tplFile(t); whenEditorReady(runCurrent); } };
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && $('#view-studio').classList.contains('active') && !editor) { e.preventDefault(); runCurrent(); } });
 
 /* ================= Notebook ================= */
@@ -676,7 +703,7 @@ function selectRef(id){
 $('#refDetail').addEventListener('click', async e => {
   const run = e.target.closest('[data-ref-run]'); const st = e.target.closest('[data-ref-studio]');
   if (run) { const r = refById[run.dataset.refRun]; $('#refOut').innerHTML = '<p class="kv">実行中…</p>'; const res = await runPython(r.example, { stdin: r.stdin || '', isolated: true, filename: `<ref ${r.id}>` }); $('#refOut').innerHTML = `<pre class="console">${outputHtml(res)}</pre>${imagesHtml(res.images)}`; }
-  if (st) { const r = refById[st.dataset.refStudio]; if (r.stdin) $('#stdinBox').value = r.stdin; openInStudio('ref_' + r.id.replace(/\W/g, '_') + '.py', r.example); }
+  if (st) { const r = refById[st.dataset.refStudio]; if (r.stdin && !$('#stdinBox').value.trim()) $('#stdinBox').value = r.stdin; openInStudio('ref_' + r.id.replace(/\W/g, '_') + '.py', r.example); }
 });
 
 /* ================= Glossary ================= */
@@ -738,6 +765,8 @@ function openKey(k){
   else if (kind === 'bug') { showView('quiz'); setQmode('bug'); __bugTask(id); }
 }
 window.__openKey = openKey;
+// stored keys are data, never code: they are read from a data attribute, not interpolated into JS
+document.addEventListener('click', e => { const el = e.target.closest('[data-open-key]'); if (el) openKey(el.dataset.openKey); });
 function renderProgress(){
   const total = progress.history.length, right = progress.history.filter(h => h.ok).length;
   $('#progressSummary').innerHTML = `
@@ -745,11 +774,11 @@ function renderProgress(){
     <div class="card"><h4>演習</h4><p>${total} 回解答・正解 ${right} 回${total ? `（${Math.round(right / total * 100)}%）` : ''}</p></div>
     <div class="card"><h4>復習対象</h4><p>${progress.wrong.length} 件 ${progress.wrong.length ? '<button onclick="showView(\'quiz\');__reviewWrong()">復習する</button>' : ''}</p></div>
     <div class="card"><h4>収録コンテンツ</h4><p>レッスン ${LESSONS.length}／四択 ${QUIZZES.length}／穴埋め ${FILLS.length}／コーディング ${CODING.length}／バグ修正 ${BUGS.length}／リファレンス ${REFERENCE.length}／用語 ${GLOSSARY.length}／間違い ${MISTAKES.length}</p></div>`;
-  $('#historyView').innerHTML = progress.history.slice(-30).reverse().map(h => `<button class="item" onclick="__openKey('${esc(h.key)}')">${h.ok ? '✅' : '❌'} ${esc(labelOf(h.key))} <span class="meta">${esc(String(h.t).slice(0, 16).replace('T', ' '))}</span></button>`).join('') || 'まだ履歴がありません';
-  $('#bookmarkView').innerHTML = progress.bookmarks.map(b => `<button class="chip" onclick="__openKey('${esc(b)}')">${esc(labelOf(b))}</button>`).join('') || 'なし';
+  $('#historyView').innerHTML = progress.history.slice(-30).reverse().map(h => `<button class="item" data-open-key="${esc(h.key)}">${h.ok ? '✅' : '❌'} ${esc(labelOf(h.key))} <span class="meta">${esc(String(h.t).slice(0, 16).replace('T', ' '))}</span></button>`).join('') || 'まだ履歴がありません';
+  $('#bookmarkView').innerHTML = progress.bookmarks.map(b => `<button class="chip" data-open-key="${esc(b)}">${esc(labelOf(b))}</button>`).join('') || 'なし';
 }
 $('#exportBtn').addEventListener('click', () => {
-  if (!isBinary(files[currentFile])) files[currentFile] = editorValue();
+  syncCurrent();
   const data = { app: 'python-studio', schema: SCHEMA, exportedAt: new Date().toISOString(), files, currentFile, progress, notebook: nbCells, notebookMeta: nbMeta,
     settings: { theme: store.get('theme', ''), optShuffle, fontSize: store.get('fontSize', 14) } };
   downloadBlob('python-studio-backup-' + new Date().toISOString().slice(0, 10) + '.json', new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
@@ -762,13 +791,13 @@ $('#importData').addEventListener('change', async e => {
     const nf = d.files ? normalizeFiles(d.files) : null;
     const summaryText = `${nf ? Object.keys(nf).length + 'ファイル、' : ''}${d.progress ? '学習記録、' : ''}${d.notebook ? 'Notebook、' : ''}`.replace(/、$/, '');
     if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n現在のデータは自動で退避します（データ初期化以外では消えません）。`)) return;
-    store.set('before-import', { files, progress, notebook: nbCells, at: new Date().toISOString() });
+    if (!store.set('before-import', { files, progress, notebook: nbCells, at: new Date().toISOString() }) && !confirm('現在のデータを退避できません（保存容量が足りません）。このまま読み込むと現在のデータは失われます。続けますか？')) return;
     if (nf) { files = nf; currentFile = d.currentFile && nf[d.currentFile] != null ? d.currentFile : Object.keys(files)[0]; }
     if (d.progress) progress = normalizeProgress(d.progress, QUIZZES);
     if (d.notebook) { nbCells = normalizeNotebook(d.notebook); nbMeta = d.notebookMeta || null; }
     if (d.settings) { if (typeof d.settings.optShuffle === 'boolean') { optShuffle = d.settings.optShuffle; store.set('optShuffle', optShuffle); } if (d.settings.theme) store.set('theme', d.settings.theme); if (d.settings.fontSize) store.set('fontSize', d.settings.fontSize); }
-    saveFiles(); saveProgress(); saveNotebook(); setEditorValue(displayText(currentFile)); updateReadOnly(); renderTabs(); renderNotebook(); renderProgress(); renderLessonList();
-    banner('バックアップを読み込みました。', 'ok');
+    const saved = [saveFiles(), saveProgress(), saveNotebook()].every(Boolean); setEditorValue(displayText(currentFile)); updateReadOnly(); renderTabs(); renderNotebook(); renderProgress(); renderLessonList();
+    if (saved) banner('バックアップを読み込みました。', 'ok'); else banner('バックアップを画面には読み込みましたが、端末に保存できませんでした（保存容量不足）。再読み込みすると失われます。', 'error');
   } catch(err){ alert('読み込みに失敗しました: ' + err.message); }
 });
 $('#wipeBtn').addEventListener('click', () => {

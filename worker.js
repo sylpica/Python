@@ -56,8 +56,9 @@ function writer(stream) {
 /* ---------- project files <-> virtual FS ---------- */
 const written = new Map();   // name -> fingerprint of what the page sent / last saw
 function fingerprint(u8) { let h = 2166136261; for (let i = 0; i < u8.length; i++) { h ^= u8[i]; h = Math.imul(h, 16777619); } return u8.length + ':' + (h >>> 0); }
+const isB64 = v => typeof v === 'string' && /^base64:[A-Za-z0-9+/]*={0,2}$/.test(v) && (v.length - 7) % 4 === 0;
 function toBytes(content) {
-  if (typeof content === 'string' && content.startsWith('base64:')) {
+  if (isB64(content)) {
     const bin = atob(content.slice(7)); const u8 = new Uint8Array(bin.length);
     for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
     return u8;
@@ -66,18 +67,22 @@ function toBytes(content) {
 }
 function safeName(name) { return typeof name === 'string' && name && !name.startsWith('/') && !name.split('/').some(p => p === '..' || p === '' || p === '.'); }
 function syncFiles(files) {
+  const problems = [];
   for (const name of [...written.keys()]) {
     if (!(name in files)) { try { pyodide.FS.unlink(PROJECT + '/' + name); } catch (e) {} written.delete(name); }
   }
   for (const [name, content] of Object.entries(files)) {
     if (!safeName(name)) continue;
-    const bytes = toBytes(content); const fp = fingerprint(bytes);
-    if (written.get(name) === fp) { try { pyodide.FS.stat(PROJECT + '/' + name); continue; } catch (e) {} }
-    const parts = name.split('/');
-    for (let d = 1; d < parts.length; d++) { try { pyodide.FS.mkdir(PROJECT + '/' + parts.slice(0, d).join('/')); } catch (e) {} }
-    pyodide.FS.writeFile(PROJECT + '/' + name, bytes);
-    written.set(name, fp);
+    try {
+      const bytes = toBytes(content); const fp = fingerprint(bytes);
+      if (written.get(name) === fp) { try { pyodide.FS.stat(PROJECT + '/' + name); continue; } catch (e) {} }
+      const parts = name.split('/');
+      for (let d = 1; d < parts.length; d++) { try { pyodide.FS.mkdir(PROJECT + '/' + parts.slice(0, d).join('/')); } catch (e) {} }
+      pyodide.FS.writeFile(PROJECT + '/' + name, bytes);
+      written.set(name, fp);
+    } catch (e) { problems.push(name); }   // one bad file must not stop every run
   }
+  return problems;
 }
 const FILE_LIMIT = 2 * 1024 * 1024, TOTAL_LIMIT = 4 * 1024 * 1024;
 function collectChanges() {
@@ -97,6 +102,7 @@ function collectChanges() {
       total += bytes.length; written.set(relName, fp);
       let text = null;
       try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) text = null; } catch (e) { text = null; }
+      if (text !== null && isB64(text)) text = null;   // text that looks like our binary marker is stored as binary, never ambiguous
       if (text === null) { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); text = 'base64:' + btoa(bin); }
       changed.push({ name: relName, content: text });
     }
@@ -133,7 +139,7 @@ async function runCode(msg) {
   let res = { error: null, result: null, images: [], note: null };
   let changes = null, fatal = false;
   try {
-    if (msg.files) syncFiles(msg.files);
+    if (msg.files) for (const n of syncFiles(msg.files)) pushOut('err', `[ファイル「${n}」を仮想ファイルに書き込めませんでした（別のファイル／フォルダと名前が衝突している可能性があります）]\n`, true);
     const sources = [msg.code];
     if (msg.files) for (const [n, c] of Object.entries(msg.files)) if (/\.py$/.test(n) && typeof c === 'string' && !c.startsWith('base64:')) sources.push(c);
     if (msg.packages && msg.packages.length) await pyodide.loadPackage(msg.packages);

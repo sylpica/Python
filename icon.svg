@@ -1,12 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#0b1220"/>
-<defs>
-  <clipPath id="topHalf"><rect x="0" y="0" width="512" height="252"/></clipPath>
-  <clipPath id="botHalf"><rect x="0" y="252" width="512" height="260"/></clipPath>
-</defs>
-<path id="snakeBody" d="M340 128 C340 208 172 196 172 276 C172 356 340 344 340 416" fill="none" stroke-width="66" stroke-linecap="round"/>
-<use href="#snakeBody" stroke="#ffd43b" clip-path="url(#topHalf)"/>
-<use href="#snakeBody" stroke="#3776ab" clip-path="url(#botHalf)"/>
-<circle cx="340" cy="122" r="47" fill="#ffd43b"/>
-<circle cx="356" cy="110" r="9" fill="#0b1220"/>
-<path d="M384 108 q30 2 40 -16 M424 92 q4 12 -2 22" stroke="#ef4444" stroke-width="9" fill="none" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#1f6feb"/><text x="50" y="68" font-size="52" text-anchor="middle" fill="#fff" font-family="monospace" font-weight="bold">Py</text></svg>

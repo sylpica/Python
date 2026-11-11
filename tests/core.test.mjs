@@ -1,5 +1,5 @@
 // Unit tests for lib/core.js (storage normalization & migration, Markdown safety, .ipynb, grading helpers)
-import { normalizeFiles, normalizeProgress, normalizeNotebook, renderMarkdown, explainError, nbToIpynb, ipynbToNb, validFileName, migrateKey } from '../lib/core.js';
+import { isB64, nameConflict, normalizeFiles, normalizeProgress, normalizeNotebook, renderMarkdown, explainError, nbToIpynb, ipynbToNb, validFileName, migrateKey } from '../lib/core.js';
 import { QUIZZES } from '../data/quizzes.js';
 import { test, eq, ok, summary } from './lib/mini-test.mjs';
 
@@ -27,4 +27,9 @@ await test('.ipynb round trip keeps sources, outputs, images, counts, metadata',
 await test('.ipynb from Jupyter with error output and ANSI codes', async () => { const b = ipynbToNb({ nbformat: 4, cells: [{ cell_type: 'code', source: '1/0', outputs: [{ output_type: 'error', ename: 'ZeroDivisionError', evalue: 'division by zero', traceback: ['\u001b[0;31mZeroDivisionError\u001b[0m: division by zero'] }] }] }); eq(b.cells[0].output.error.type, 'ZeroDivisionError'); ok(!b.cells[0].output.segs[0].t.includes('\u001b')); });
 await test('.ipynb invalid inputs give clear errors', async () => { for (const bad of [null, {}, { cells: 'x' }, { nbformat: 3, cells: [] }, { cells: [5] }]) { let threw = false; try { ipynbToNb(bad); } catch (e) { threw = true; ok(e.message.length > 3); } ok(threw, JSON.stringify(bad)); } });
 await test('error cell exports as an error output, not duplicated stderr', async () => { const nb = nbToIpynb([{ type: 'code', source: '1/0', count: 1, output: { segs: [{ s: 'err', t: 'Traceback...\nZeroDivisionError: division by zero\n' }], error: { type: 'ZeroDivisionError', message: 'division by zero', text: 'Traceback...\nZeroDivisionError: division by zero\n' }, images: [] } }]); eq(nb.cells[0].outputs.map(o => o.output_type), ['error']); });
+await test('A-03 cleanOutput rebuilds broken notebook output so rendering cannot throw', async () => { for (const bad of [{ segs: 5 }, { segs: [null, 3, { t: 5 }] }, { images: 'abc' }, { images: ['<img onerror=1>'] }, { error: 'x' }, 5, 'x']) { const c = normalizeNotebook([{ type: 'code', source: 'x', output: bad }])[0]; if (c.output) { ok(Array.isArray(c.output.segs) && Array.isArray(c.output.images)); ok(c.output.images.every(i => /^[A-Za-z0-9+/=\s]*$/.test(i))); } } });
+await test('A-04 binary marker is strict; look-alike text is not binary', async () => { ok(isB64('base64:AAEC/w==')); ok(isB64('base64:')); ok(!isB64('base64:hello, world!')); ok(!isB64('base64:abc')); ok(!isB64('hello')); });
+await test('A-05 file/folder collisions are detected', async () => { eq(nameConflict('dd', { 'dd/x.py': '' }) !== null, true); eq(nameConflict('dd/x.py', { dd: '' }) !== null, true); eq(nameConflict('a.py', { 'b.py': '' }), null); eq(nameConflict('dd', { dd: '' }), null); });
+await test('A-12 reserved object names are rejected', async () => { for (const n of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) ok(validFileName(n), n); eq(validFileName('constructors.py'), null); });
+await test('A-02b markdown link with * in URL is not turned into markup', async () => { const h = renderMarkdown('[n](https://e.com/*"onmouseover=*x*)'); ok(!/<a href="[^"]*<i>/.test(h), h); ok(!/onmouseover="/.test(h)); });
 summary('core: ');
