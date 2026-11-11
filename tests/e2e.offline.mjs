@@ -37,6 +37,7 @@ await test('update: old app caches are replaced, CDN cache kept, foreign caches 
   const after = await page.evaluate(() => caches.keys());
   ok(!after.includes('python-studio-app-v1-old'), 'old app cache removed: ' + after); ok(after.includes('other-app-cache'), 'foreign cache kept: ' + after); ok(after.some(n => n.startsWith('python-studio-cdn')), 'cdn kept: ' + after);
 });
+await test('A-10 only caches named python-studio-* are removed (python-studiox-* of another app survives)', async () => { await page.evaluate(async () => { await caches.open('python-studiox-other'); await caches.open('python-studio-old-thing'); const r = await navigator.serviceWorker.getRegistration(); if (r) await r.unregister(); }); await page.reload(); await page.waitForTimeout(2500); const names = await page.evaluate(() => caches.keys()); ok(names.includes('python-studiox-other'), names.join()); ok(!names.includes('python-studio-old-thing'), names.join()); });
 await test('corrupt saved data: app still starts and recovers', async () => {
   await page.evaluate(() => { localStorage.setItem('pystudio:files', '{broken'); localStorage.setItem('pystudio:progress', '"str"'); localStorage.setItem('pystudio:notebook', '5'); });
   await page.reload(); await ready(); eq(await page.evaluate(() => Object.keys(window.__pystudio.files)), ['main.py']); eq(await page.evaluate(() => window.__pystudio.nbCells.length), 2);

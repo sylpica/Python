@@ -221,7 +221,7 @@ export const REFERENCE = [
   "returns": "int: 整数値",
   "example": "print(int(\"42\") + 1)",
   "expected": "43",
-  "pitfalls": "int(\"3.5\") は ValueError（文字列の小数表記は直接変換できない。float を経由する）。小数 float を int にすると小数部は切り捨てられる。",
+  "pitfalls": "int(\"3.5\") は ValueError（文字列の小数表記は直接変換できない。float を経由する）。小数 float を int にすると小数部は切り捨てられる（0 に近い方向へ。int(-2.5) は -2）。",
   "related": [
    "str",
    "type",
@@ -568,7 +568,7 @@ export const REFERENCE = [
   "importance": "最重要",
   "level": "基礎",
   "summary": "リスト自体を並べ替えるメソッド。",
-  "syntax": "list.sort(key=None, reverse=False)",
+  "syntax": "list.sort(*, key=None, reverse=False)",
   "args": "key: 並べ替え基準、reverse: True で降順",
   "returns": "None（リスト自体が変更される）",
   "example": "nums = [3, 1, 2]\nnums.sort()\nprint(nums)",

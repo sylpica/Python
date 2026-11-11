@@ -65,7 +65,7 @@
         <div id="tabBar" class="tabbar" role="tablist" aria-label="開いているファイル"></div>
         <div id="editor" class="editor"></div>
         <textarea id="editorFallback" class="editor hidden" spellcheck="false" aria-label="Python コードエディタ"></textarea>
-        <div id="editorNote" class="note"></div>
+        <div id="editorNote" class="note">Tab は字下げです。キーボードでエディタから出るには Ctrl+M のあと Tab を押します。</div>
         <div class="runbar">
           <button id="runBtn" class="primary">▶ 実行 (Ctrl+Enter)</button>
           <button id="stopBtn" disabled>■ 中断</button>
@@ -105,6 +105,7 @@
       <button id="nbAddCode">＋ コードセル</button>
       <button id="nbAddMd">＋ Markdownセル</button>
       <button id="nbRunAll" class="primary">▶▶ 全セル実行</button>
+      <button id="nbStop" disabled>■ 中断</button>
       <button id="nbExport">.ipynb 書出</button>
       <label class="fileup">.ipynb 読込<input id="nbImport" type="file" accept=".ipynb" hidden></label>
     </div>
@@ -196,7 +197,6 @@
     </div>
   </section>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

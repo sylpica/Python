@@ -196,6 +196,10 @@ async def run(code, filename='main.py', isolated=False, want_last=False):
         os.chdir(SANDBOX_DIR)
     else:
         purge_project_modules()
+        try:
+            os.chdir(PROJECT_DIR)   # a previous os.chdir() must not break the next run
+        except OSError:
+            pass
     linecache.cache[filename] = (len(code), None, code.splitlines(True), filename)
     result = None
     error = None

@@ -16,7 +16,7 @@ self.addEventListener('install', e => {
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
-    .then(ks => Promise.all(ks.filter(k => k.startsWith('python-studio') && k !== APP_CACHE && k !== CDN_CACHE).map(k => caches.delete(k))))
+    .then(ks => Promise.all(ks.filter(k => k.startsWith('python-studio-') && k !== APP_CACHE && k !== CDN_CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
@@ -24,7 +24,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin === self.location.origin) {
     if (!url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;   // not ours
-    e.respondWith(fetch(e.request).then(res => {
+    // cache:'no-cache' revalidates with the server, so the HTTP cache (GitHub Pages sends max-age=600)
+    // can never serve a mix of old and new files after a deploy
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(APP_CACHE).then(c => c.put(e.request, copy)); }
       return res;
     }).catch(() => caches.open(APP_CACHE).then(c => c.match(e.request, { ignoreSearch: true })).then(hit => hit || (e.request.mode === 'navigate' ? caches.match('index.html') : Response.error()))));

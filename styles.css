@@ -142,3 +142,10 @@ button.side-item{display:flex;border:none;background:none}
  #pkgTable td{border:none;padding:3px 0}
  #pkgTable td::before{content:attr(data-l) "：";color:var(--mut);font-size:12px}
 }
+/* FINAL-A/B(2) fixes: contrast and layout */
+.opt.correct,.opt.wrong,.opt.correct:disabled,.opt.wrong:disabled{opacity:1;font-weight:600}
+.opt.correct::after{content:" ✓ 正解";margin-left:6px}.opt.wrong::after{content:" ✗ 選んだ答え";margin-left:6px}
+.opt:disabled:not(.correct):not(.wrong){opacity:.6}
+a{color:var(--acc)}
+[data-theme="dark"] a{color:#79b8ff}
+#sideDetail{min-height:110px}

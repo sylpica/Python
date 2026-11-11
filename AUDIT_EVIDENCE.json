@@ -9,14 +9,14 @@
  },
  "tests": {
   "core": {
-   "total": 11,
-   "pass": 11,
+   "total": 16,
+   "pass": 16,
    "fail": 0,
    "skip": 0
   },
   "engine": {
-   "total": 68,
-   "pass": 68,
+   "total": 71,
+   "pass": 71,
    "fail": 0,
    "skip": 0
   },
@@ -27,17 +27,16 @@
    "skip": 0
   },
   "e2e": {
-   "total": 22,
-   "pass": 22,
+   "total": 31,
+   "pass": 31,
    "fail": 0,
    "skip": 0
   },
   "offline": {
-   "total": 10,
-   "pass": 10,
+   "total": 11,
+   "pass": 11,
    "fail": 0,
-   "skip": 0,
-   "scope": "Chromium+実Service Worker、ローカルサーバー。オフライン再読込・起動1.6秒・更新時のキャッシュ整理・破損/旧形式データ・バックアップ往復"
+   "skip": 0
   }
  },
  "counts": {
@@ -2043,14 +2042,14 @@
   "browser": "Chromium（新規プロファイル、Linuxサンドボックス）"
  },
  "finalAudits": {
-  "B": {
-   "status": "findings-fixed-rerun-pending",
-   "coverage": "レッスン30/30・四択50/50・リファレンス42/42・用語34/34・間違い15/15・外部URL72件200を確認、画面54枚(約20枚を目視)",
-   "fixedHighMedium": "High3, Medium11 を修正"
+  "round1": {
+   "B": "指摘あり(High3/Medium11)→修正",
+   "A": "指摘あり(High2: 保存型XSS・base64衝突, Medium7)→修正"
   },
-  "A": {
-   "status": "not-completed",
-   "reason": "エージェントがAPIレート制限(429)で中断"
-  }
+  "round2": {
+   "B": "指摘あり(Medium4: 無確認上書き・複数タブ・コントラスト)→修正。教材の事実誤りは指摘なし",
+   "A": "未実施"
+  },
+  "passed": false
  }
 }

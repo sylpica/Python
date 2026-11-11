@@ -87,6 +87,15 @@ await test('B-06 missing-glyph warnings collapse into one Japanese note', async 
 await test('B-07 pandas pyarrow notice is not shown', async () => { const r = await run('import pandas as pd\nprint(pd.__version__)'); eq(stdout(r), '2.2.0\n'); ok(!/Pyarrow/i.test(w.text(r)), w.text(r)); });
 await test('B-07 other warnings still appear', async () => { const r = await run('import warnings\nwarnings.warn("keep me")'); ok(/keep me/.test(w.text(r))); });
 
+// ---------- FINAL-A regressions ----------
+await test('A-04 a text file that starts with "base64:" does not break later runs and round-trips as text-safe', async () => {
+  let r = await run('open("n.txt", "w").write("base64:hello, world!")\nopen("m.txt", "w").write("base64:AAAA")', { files: { 'main.py': '' } });
+  eq(r.error, null); const got = Object.fromEntries(r.changes.changed.map(c => [c.name, c.content])); eq(got['n.txt'], 'base64:hello, world!'); ok(got['m.txt'].startsWith('base64:'));
+  r = await run('print(open("n.txt").read())\nprint(list(open("m.txt","rb").read()))', { files: { 'main.py': '', 'n.txt': 'base64:hello, world!', 'm.txt': got['m.txt'] } });
+  eq(r.error, null, JSON.stringify(r.error)); eq(stdout(r), 'base64:hello, world!\n[98, 97, 115, 101, 54, 52, 58, 65, 65, 65, 65]\n');
+});
+await test('A-05 file/folder name collision gives a readable message and other files still run', async () => { const r = await run('print("ok")', { files: { 'main.py': '', 'dd': 'x', 'dd/x.py': 'y' } }); eq(r.error, null); ok(stdout(r).includes('ok')); ok(/ファイル「[^」]+」を仮想ファイルに書き込めませんでした/.test(w.text(r)), w.text(r)); ok(!/\[object Object\]/.test(w.text(r))); });
+await test('A-12 os.chdir in one run does not break the next run', async () => { await run('import os\nos.chdir("/")'); const r = await run('import os\nprint(os.getcwd())', { files: { 'main.py': '' } }); eq(stdout(r), '/home/pyodide\n'); });
 // ---------- asyncio ----------
 await test('asyncio.run() works via top-level await shim', async () => { const r = await run('import asyncio\nasync def main():\n    await asyncio.sleep(0)\n    return 5\nprint(asyncio.run(main()))\nv = asyncio.run(main())\nprint(v)\ndef inner():\n    return asyncio.run\nprint(inner() is asyncio.run)'); eq(stdout(r), '5\n5\nTrue\n'); eq(r.asyncioShim, true); });
 await test('asyncio.gather order', async () => { const r = await run('import asyncio\nasync def g(n, d):\n    await asyncio.sleep(d)\n    return n\nasync def main():\n    print(await asyncio.gather(g("a", 0.02), g("b", 0)))\nasyncio.run(main())'); eq(stdout(r), "['a', 'b']\n"); });
