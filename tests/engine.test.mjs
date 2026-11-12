@@ -96,6 +96,10 @@ await test('A-04 a text file that starts with "base64:" does not break later run
 });
 await test('A-05 file/folder name collision gives a readable message and other files still run', async () => { const r = await run('print("ok")', { files: { 'main.py': '', 'dd': 'x', 'dd/x.py': 'y' } }); eq(r.error, null); ok(stdout(r).includes('ok')); ok(/ファイル「[^」]+」を仮想ファイルに書き込めませんでした/.test(w.text(r)), w.text(r)); ok(!/\[object Object\]/.test(w.text(r))); });
 await test('A-12 os.chdir in one run does not break the next run', async () => { await run('import os\nos.chdir("/")'); const r = await run('import os\nprint(os.getcwd())', { files: { 'main.py': '' } }); eq(stdout(r), '/home/pyodide\n'); });
+// ---------- 2nd audit regressions ----------
+await test('H-2 hidden files survive a run (not deleted from the page)', async () => { const r = await run('print("hi")', { files: { 'main.py': 'print("hi")', '.notes.txt': 'keep me' } }); eq(r.changes.deleted, []); eq(r.error, null); });
+await test('H-2 files inside hidden folders also survive', async () => { const r = await run('print("hi")', { files: { 'main.py': 'x', '.cfg/a.txt': 'keep' } }); eq(r.changes.deleted, []); });
+await test('L-4 a local variable named like a builtin is not reported', async () => { const r = await run('def f():\n    sum = 0\n    return sum\nprint(f())'); eq(r.error, null); });
 // ---------- asyncio ----------
 await test('asyncio.run() works via top-level await shim', async () => { const r = await run('import asyncio\nasync def main():\n    await asyncio.sleep(0)\n    return 5\nprint(asyncio.run(main()))\nv = asyncio.run(main())\nprint(v)\ndef inner():\n    return asyncio.run\nprint(inner() is asyncio.run)'); eq(stdout(r), '5\n5\nTrue\n'); eq(r.asyncioShim, true); });
 await test('asyncio.gather order', async () => { const r = await run('import asyncio\nasync def g(n, d):\n    await asyncio.sleep(d)\n    return n\nasync def main():\n    print(await asyncio.gather(g("a", 0.02), g("b", 0)))\nasyncio.run(main())'); eq(stdout(r), "['a', 'b']\n"); });

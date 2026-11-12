@@ -49,12 +49,17 @@ function saveProgress(){ return store.set('progress', progress); }
 function saveFiles(){ const a = store.set('files', files), b = store.set('currentFile', currentFile); return a && b; }
 function saveNotebook(){ const a = store.set('notebook', nbCells); const b = nbMeta ? store.set('notebookMeta', nbMeta) : true; return a && b; }
 // keep the stored text byte-exact (e.g. CRLF) unless the user really edited it
+// Another tab saved: adopt its state before we save again, so this tab can never write back a stale copy.
 window.addEventListener('storage', e => {
   if (e.key !== PREFIX + 'files' || !e.newValue) return;
   try {
-    const other = normalizeFiles(JSON.parse(e.newValue)); let added = 0;
-    for (const [k, v] of Object.entries(other)) if (files[k] == null) { files[k] = v; added++; }
-    if (added) { saveFiles(); renderTabs(); banner(`別のタブで作成されたファイルを ${added} 件取り込みました。複数のタブで同時に編集すると、同じ名前のファイルは最後に書いた内容が残ります。`, 'warn'); }
+    const other = normalizeFiles(JSON.parse(e.newValue));
+    const changedNames = Object.keys(other).filter(k => other[k] !== files[k]).length;
+    if (!changedNames && Object.keys(other).length === Object.keys(files).length) return;
+    files = other;
+    if (files[currentFile] == null) currentFile = Object.keys(files)[0];
+    setEditorValue(displayText(currentFile)); updateReadOnly(); renderTabs(); runDiagnostics();
+    banner('別のタブでの変更を取り込みました。複数のタブで同時に編集すると、後から保存した方の内容が残ります。', 'warn');
   } catch(err){}
 });
 function syncCurrent(){ const f = currentFile; if (files[f] == null || isBinary(files[f])) return; const v = editorValue(); if (v.replace(/\r\n/g, '\n') !== String(files[f]).replace(/\r\n/g, '\n')) files[f] = v; }
@@ -82,7 +87,7 @@ function newWorker(){
     }
     if (m.type === 'init-error') { kernelState = 'failed'; clearTimeout(startTimer); clearTimeout(startTimer2); setStatus('カーネルを起動できませんでした: ' + m.error); $('#kernelRetry').classList.remove('hidden'); flushPending('Python を起動できませんでした（オフライン、または CDN に接続できません）。「再試行」を押してください。'); return; }
     if (m.type === 'status') { setStatus(m.text); return; }
-    if (m.type === 'stream') { const p = pending.get(m.id); if (p && p.onStream) p.onStream(m.segs); return; }
+    if (m.type === 'stream') { const p = pending.get(m.id); if (p) { p.acc = (p.acc || []).concat(m.segs); if (p.onStream) p.onStream(m.segs); } return; }
     if (m.id != null && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); p.resolve(m); }
     if (m.type === 'loaded') setStatus(m.error ? 'パッケージ読込失敗: ' + m.error : 'パッケージ読込完了: ' + m.packages.join(', '));
     if (m.type === 'result' && m.fatal) crashed('Python カーネルが致命的なエラーで停止しました。新しいカーネルを起動します（変数は失われました）。');
@@ -106,7 +111,7 @@ function runPython(code, opts = {}, onStream){
   return p;
 }
 function flushPending(reason){
-  for (const [, p] of pending) p.resolve({ type:'result', segs:[{ s:'err', t: reason }], error:{ type:'Interrupted', message: reason, text: reason }, images:[], vars:[], ms:0, syntax:null, warnings:[] });
+  for (const [, p] of pending) p.resolve({ type:'result', segs:[...(p.acc || []), { s:'err', t: '\n' + reason + '\n' }], error:{ type:'Interrupted', message: reason, text: reason }, images:[], vars:[], ms:0, syntax:null, warnings:[] });
   pending.clear();
 }
 $('#kernelRetry').addEventListener('click', () => newWorker());
@@ -334,6 +339,7 @@ let running = 0;
 function setRunning(d){ running += d; $('#runBtn').disabled = running > 0 || !editorReady; $('#runState').textContent = running > 0 ? '実行中…' : ''; }
 async function runCurrent(){
   if (running > 0 || !editorReady) return;   // one Studio run at a time (button is disabled too)
+  if (isBinary(files[currentFile])) { $('#console').textContent = `「${currentFile}」は UTF-8 以外の文字コードのため、バイナリとして読み込まれています。実行するには UTF-8 で保存し直してください。`; return; }
   syncCurrent();
   saveFiles();
   if (!/\.py$/.test(currentFile)) { $('#console').textContent = `「${currentFile}」は Python ファイル（.py）ではないため実行できません。`; return; }
@@ -799,8 +805,9 @@ $('#importData').addEventListener('change', async e => {
     if (!d || typeof d !== 'object' || !(d.files || d.progress || d.notebook)) throw new Error('Python Studio のバックアップ形式ではありません');
     const nf = d.files ? normalizeFiles(d.files) : null;
     const summaryText = `${nf ? Object.keys(nf).length + 'ファイル、' : ''}${d.progress ? '学習記録、' : ''}${d.notebook ? 'Notebook、' : ''}`.replace(/、$/, '');
-    if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n現在のデータは自動で退避します（データ初期化以外では消えません）。`)) return;
-    if (!store.set('before-import', { files, progress, notebook: nbCells, at: new Date().toISOString() }) && !confirm('現在のデータを退避できません（保存容量が足りません）。このまま読み込むと現在のデータは失われます。続けますか？')) return;
+    if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n現在のデータは直前5回分まで自動で退避します（ブラウザの保存領域に残り、この画面からは復元できません）。`)) return;
+    const hist = store.get('before-import-history', []); hist.unshift({ files, progress, notebook: nbCells, at: new Date().toISOString() }); store.set('before-import-history', hist.slice(0, 5));
+    if (!store.set('before-import', hist[0]) && !confirm('現在のデータを退避できません（保存容量が足りません）。このまま読み込むと現在のデータは失われます。続けますか？')) return;
     if (nf) { files = nf; currentFile = d.currentFile && nf[d.currentFile] != null ? d.currentFile : Object.keys(files)[0]; }
     if (d.progress) progress = normalizeProgress(d.progress, QUIZZES);
     if (d.notebook) { nbCells = normalizeNotebook(d.notebook); nbMeta = d.notebookMeta || null; }

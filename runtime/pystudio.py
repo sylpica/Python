@@ -321,6 +321,12 @@ def analyze(code, extra_names_json='[]'):
             ln = getattr(w, 'lineno', 1) or 1
             W.append({'line': ln, 'col': 1, 'endLine': ln, 'endCol': 200, 'sev': 'warn',
                       'code': 'syntax-warning', 'msg': f'SyntaxWarning: {w.message}'})
+    _MODULE_STORES = set()
+    for stmt in tree.body:
+        for t in (stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target] if isinstance(stmt, (ast.AnnAssign, ast.AugAssign)) else []):
+            for n in ast.walk(t):
+                if isinstance(n, ast.Name):
+                    _MODULE_STORES.add(n.id)
     bound = set(dir(builtins)) | _IMPLICIT | set(json.loads(extra_names_json))
     star = False
     loads = []
@@ -373,7 +379,7 @@ def analyze(code, extra_names_json='[]'):
                     W.append({**_span(node), 'sev': 'info', 'code': 'none-compare',
                               'msg': 'None との比較には == / != ではなく is / is not を使うのが推奨されます（PEP 8）'})
                 left = right
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and node.id in _SHADOW:
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store) and node.id in _SHADOW and node.id in _MODULE_STORES:
             W.append({**_span(node), 'sev': 'warn', 'code': 'builtin-shadow',
                       'msg': f'組み込みの「{node.id}」を上書きしています。以後この名前で組み込み関数を呼べなくなります'})
     # module-level assignment never read anywhere (hint only)
