@@ -102,7 +102,7 @@ function runPython(code, opts = {}, onStream){
   inflight++; syncStop();
   const p = enqueue(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin ?? '', isolated: !!opts.isolated,
     wantLast: !!opts.wantLast, filename: opts.filename || 'main.py', stream: !!onStream }, onStream));
-  p.finally(() => { inflight--; syncStop(); });
+  p.finally(() => { inflight--; syncStop(); if (inflight <= 0 && kernelState === 'ready' && /読込中/.test($('#kernelStatus').textContent)) setStatus('カーネル準備完了（Python 3.12 / Pyodide 0.26.4）'); });
   return p;
 }
 function flushPending(reason){
@@ -273,10 +273,15 @@ function switchFile(f){
   syncCurrent();
   currentFile = f; setEditorValue(displayText(f)); updateReadOnly(); saveFiles(); renderTabs(); runDiagnostics();
 }
+function putFile(name, code){
+  files[name] = code;
+  if (name === currentFile) { setEditorValue(displayText(name)); updateReadOnly(); saveFiles(); renderTabs(); runDiagnostics(); }
+  else { saveFiles(); switchFile(name); }
+}
 function openInStudio(name, code){
   syncCurrent();
   if (files[name] != null && files[name] !== code && !confirm(`「${name}」には既に別の内容（編集済みの可能性があります）があります。元のコードで上書きしますか？\n［キャンセル］で、今あるファイルをそのまま開きます。`)) { switchFile(name); showView('studio'); return; }
-  files[name] = code; saveFiles(); switchFile(name); showView('studio');
+  putFile(name, code); showView('studio');
 }
 $('#tabBar').addEventListener('click', e => { const b = e.target.closest('[data-file]'); if (b) switchFile(b.dataset.file); });
 let fileRowMode = 'new', renameFrom = null;
@@ -305,7 +310,7 @@ function submitFileRow(){
     const entries = Object.entries(files).map(([k, v]) => k === renameFrom ? [name, v] : [k, v]);
     files = Object.fromEntries(entries); if (currentFile === renameFrom) currentFile = name; saveFiles(); renderTabs();
   }
-  $('#newFileRow').classList.add('hidden'); $('#newFileName').value = '';
+  $('#newFileRow').classList.add('hidden'); $('#newFileName').value = ''; $('#fileRowError').textContent = '';
 }
 $('#createFileBtn').addEventListener('click', submitFileRow);
 $('#newFileName').addEventListener('keydown', e => { if (e.key === 'Enter') submitFileRow(); if (e.key === 'Escape') $('#newFileRow').classList.add('hidden'); });
@@ -333,6 +338,7 @@ async function runCurrent(){
   saveFiles();
   if (!/\.py$/.test(currentFile)) { $('#console').textContent = `「${currentFile}」は Python ファイル（.py）ではないため実行できません。`; return; }
   const code = files[currentFile];
+  reveal('consoleHead');
   const con = $('#console'); con.innerHTML = ''; $('#plotArea').innerHTML = ''; $('#runTime').textContent = '';
   let streamed = '';
   setRunning(1);
@@ -471,7 +477,7 @@ window.__tpl = id => {
 };
 function tplFile(t){ if (files[t.file] == null) files[t.file] = t.code; switchFile(t.file); }
 window.__tplOpen = id => { const t = TEMPLATES.find(x => x.id === id); if (t) tplFile(t); };
-window.__tplReset = id => { const t = TEMPLATES.find(x => x.id === id); if (t && confirm('「' + t.file + '」を元のコードに戻します（編集内容は失われます）。よろしいですか？')) { files[t.file] = t.code; switchFile(t.file); } };
+window.__tplReset = id => { const t = TEMPLATES.find(x => x.id === id); if (t && confirm('「' + t.file + '」を元のコードに戻します（編集内容は失われます）。よろしいですか？')) putFile(t.file, t.code); };
 window.__tplRun = id => { const t = TEMPLATES.find(x => x.id === id); if (t) { tplFile(t); whenEditorReady(runCurrent); } };
 document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && $('#view-studio').classList.contains('active') && !editor) { e.preventDefault(); runCurrent(); } });
 
@@ -496,9 +502,10 @@ $('#nbCells').addEventListener('input', e => {
   if (nbCells[i].type === 'markdown') { const md = e.target.parentElement.querySelector('.nb-md'); if (md) md.innerHTML = renderMarkdown(e.target.value); }
 });
 let nbTabPass = false;
-$('#nbCells').addEventListener('keydown', e => {
-  const ta = e.target; if (ta.dataset.cell == null || ta.tagName !== 'TEXTAREA') return;
-  const code = nbCells[ta.dataset.cell] && nbCells[ta.dataset.cell].type === 'code';
+function codeKeys(e){
+  const ta = e.target; if (ta.tagName !== 'TEXTAREA') return;
+  const code = ta.dataset.cell != null ? (nbCells[ta.dataset.cell] && nbCells[ta.dataset.cell].type === 'code') : (ta.id === 'codeAns' || ta.id === 'bugAns');
+  if (!code && ta.dataset.cell == null) return;
   if (e.key === 'Escape') { nbTabPass = true; return; }
   if (code && e.key === 'Tab' && !e.shiftKey && !nbTabPass && !e.ctrlKey && !e.metaKey) { e.preventDefault(); ta.setRangeText('    ', ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); return; }
   nbTabPass = false;
@@ -506,15 +513,17 @@ $('#nbCells').addEventListener('keydown', e => {
     const before = ta.value.slice(0, ta.selectionStart); const line = before.slice(before.lastIndexOf('\n') + 1); const indent = line.match(/^ */)[0] + (/:\s*$/.test(line) ? '    ' : '');
     if (indent) { e.preventDefault(); ta.setRangeText('\n' + indent, ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); }
   }
-});
+}
+$('#nbCells').addEventListener('keydown', codeKeys);
+$('#quizArea').addEventListener('keydown', codeKeys);
 $('#nbCells').addEventListener('keydown', e => { const i = e.target.dataset.cell; if (i != null && (e.ctrlKey || e.metaKey || e.shiftKey) && e.key === 'Enter' && nbCells[i].type === 'code') { e.preventDefault(); runCell(Number(i)); } });
 async function runCell(i){
   const c = nbCells[i]; const out = $('#nbOut' + i); if (out) out.innerHTML = '<span class="cnote">実行中…</span>';
-  const r = await runPython(c.source, { files, stdin: $('#stdinBox').value, wantLast: true, filename: `セル ${i + 1}` });
+  const r = await runPython(c.source, { files, stdin: $('#nbStdin').value, wantLast: true, filename: `セル ${i + 1}` });
   const changeMsg = mergeChanges(r.changes);
   c.count = r.error && r.error.type === 'Interrupted' ? null : ++nbExecCount;
   c.output = { segs: r.segs, result: r.result, images: r.images, error: r.error, note: [r.note, changeMsg].filter(Boolean).join('\n') || null };
-  renderNotebook(); return r;
+  renderNotebook(i); return r;
 }
 $('#nbCells').addEventListener('click', async e => {
   const b = e.target.closest('[data-nb]'); if (!b) return; const i = Number(b.dataset.i);
@@ -550,7 +559,7 @@ function renderLessonList(){
 }
 $('#lessonFilter').addEventListener('input', renderLessonList);
 function relatedQuizzes(lessonId){ return QUIZZES.filter(z => z.lesson === lessonId); }
-const reveal = id => { if (matchMedia('(max-width:900px)').matches) { const el = document.getElementById(id); if (el) el.scrollIntoView({ block: 'start' }); } };
+function reveal(id){ if (matchMedia('(max-width:900px)').matches) { const el = document.getElementById(id); if (el) el.scrollIntoView({ block: 'start' }); } }
 function selectLesson(id){
   const l = lessonById[id]; if (!l) return; renderLessonList(); setTimeout(() => reveal('lessonDetail'), 0);
   const qs = relatedQuizzes(id);
@@ -627,7 +636,7 @@ $('#quizArea').addEventListener('click', e => {
   const lessonBtn = (!ok && z.lesson && lessonById[z.lesson]) ? `<button onclick="__goLesson('${z.lesson}')">📖 関連レッスン「${esc(lessonById[z.lesson].title)}」で復習</button> ` : '';
   const tryBtn = z.code ? `<button data-try-code="1">Studioで試す</button> ` : '';
   $('#qExplain').innerHTML = `<div class="explain">${ok ? '✅ 正解' : '❌ 不正解（正解は ' + 'ABCD'[z.answer] + '）'}<br>${esc(z.explanation || z.explain)}</div><div class="toolbar">${lessonBtn}${tryBtn}<button class="primary" id="qNext">次の問題</button></div>`;
-  $('#qNext').addEventListener('click', () => { quizIdx++; showChoice(); });
+  $('#qNext').addEventListener('click', () => { quizIdx++; showChoice(); const o = $('#quizArea .opt'); if (o) o.focus(); });
   $('#qNext').focus();
 });
 $('#quizArea').addEventListener('click', e => { if (e.target.closest('[data-try-code]')) { const z = quizQueue[quizIdx]; openInStudio('quiz_' + z.id + '.py', z.code + '\n'); } });
