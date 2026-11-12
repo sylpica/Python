@@ -19,7 +19,7 @@ main{padding:8px}
 .studio-layout{display:grid;grid-template-columns:190px 1fr 300px;gap:8px;align-items:start}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px}
 .panel-head{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin:4px 0}
-.tpl-detail{border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0;max-height:300px;overflow:auto;font-size:.86rem}
+.tpl-detail{border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0;font-size:.86rem;display:flex;flex-direction:column}.tpl-detail .tpl-btns{order:-1;margin:0 0 6px}.tpl-detail h4{order:-2}
 .tpl-detail h4{margin:2px 0 4px}
 .tpl-detail .tpl-btns{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
 .term-link{background:none;border:none;padding:0;color:var(--acc);text-decoration:underline dotted;cursor:pointer;font:inherit}
@@ -149,3 +149,7 @@ button.side-item{display:flex;border:none;background:none}
 a{color:var(--acc)}
 [data-theme="dark"] a{color:#79b8ff}
 #sideDetail{min-height:110px}
+/* FINAL-B(3) M-02: text on accent / result colours must stay readable in dark theme (was ~2.5:1) */
+[data-theme="dark"] .navbtn.active,[data-theme="dark"] .qmode.active,[data-theme="dark"] button.primary,[data-theme="dark"] .tabbar button.active,
+[data-theme="dark"] .file-list li.active,[data-theme="dark"] .side-tabs button.active,[data-theme="dark"] .opt.correct,[data-theme="dark"] .opt.wrong,
+[data-theme="dark"] .opt.correct .optno,[data-theme="dark"] .opt.wrong .optno{color:#0d1117}

@@ -304,7 +304,7 @@ export const PACKAGES = [
   "install": "python -m pip install requests",
   "browser": "import で利用可",
   "official": "https://requests.readthedocs.io/",
-  "browserNote": "Pyodide 同梱 2.31.0。import は確認済み。実際の通信はブラウザの制約（CORS）を受け、許可されたサーバーにしか届きません（通信は未検証）"
+  "browserNote": "Pyodide 同梱 2.31.0。import は確認済み。実際の通信はブラウザの制約（CORS）を受け、許可されたサーバーにしか届きません"
  },
  {
   "id": "fastapi",
@@ -378,7 +378,7 @@ export const ENV_LESSONS = [
  {
   "id": "install-and-path",
   "title": "インストールとPATH",
-  "body": "PythonをPCにインストールする際は、公式サイトのインストーラを使うのが基本です。Windowsではインストール時にPATHへ追加する設定を有効にしないと、ターミナルからpythonコマンドが見つからず起動できません。PATHとは、コマンド名から実行ファイルの場所を探すための仕組みで、OSが管理する検索リストのようなものです。インストール後はターミナルでpython --versionと表示されるか必ず確認してください。表示されない場合は、インストール先やPATH設定を見直します。macOSやLinuxではOS付属のPythonと自分で入れたPythonが混在することがあるため、どのPythonが起動しているかをwhich（Windowsでは where）で確認する習慣が大切です。",
+  "body": "PythonをPCにインストールする際は、公式サイトのインストーラを使うのが基本です。Windowsでは、Python 3.14 以降は公式の Python install manager での導入が推奨され、導入後はターミナルから python を使えます。従来のインストーラ（3.15 まで提供）を使う場合は、インストール時にPATHへ追加する設定を有効にしないと、ターミナルからpythonコマンドが見つかりません。PATHとは、コマンド名から実行ファイルの場所を探すための仕組みで、OSが管理する検索リストのようなものです。インストール後はターミナルでpython --versionと表示されるか必ず確認してください。表示されない場合は、インストール先やPATH設定を見直します。macOSやLinuxではOS付属のPythonと自分で入れたPythonが混在することがあるため、どのPythonが起動しているかをwhich（Windowsのコマンドプロンプトでは where python、PowerShellでは Get-Command python）で確認する習慣が大切です。",
   "points": [
    "公式インストーラを使う",
    "PATH追加を忘れない",

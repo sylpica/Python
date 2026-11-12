@@ -76,7 +76,7 @@
           <span id="diagSummary" class="diag-summary"></span>
         </div>
         <div id="diagList" class="diag-list"></div>
-        <div class="console-head">実行結果 <span id="runTime"></span></div>
+        <div class="console-head" id="consoleHead">実行結果 <span id="runTime"></span></div>
         <div id="console" class="console" role="log" aria-live="polite" tabindex="0"></div>
         <div id="plotArea"></div>
         <details class="stdin-box"><summary>標準入力（input() 用、1行に1つ）</summary>
@@ -109,7 +109,10 @@
       <button id="nbExport">.ipynb 書出</button>
       <label class="fileup">.ipynb 読込<input id="nbImport" type="file" accept=".ipynb" hidden></label>
     </div>
-    <p class="note">Studio と同じカーネルで実行し、変数とファイルを共有します。[n] は実行した順番です。セルの最後の式の値は表示されます。Shift+Enter でセル実行。</p>
+    <p class="note">Studio と同じカーネルで実行し、変数とファイルを共有します。[n] は実行した順番です。セルの最後の式の値は表示されます。Shift+Enter でセル実行。Tab は字下げ（Esc のあと Tab で次の項目へ移動）。再読み込み後は出力だけが残り、変数は消えているので、上のセルから実行し直してください。</p>
+    <details class="stdin-box"><summary>標準入力（input() 用、1行に1つ）</summary>
+      <textarea id="nbStdin" rows="2" placeholder="セルの input() が読む値を改行区切りで" aria-label="Notebook の標準入力"></textarea>
+    </details>
     <div id="nbCells"></div>
   </section>
 
