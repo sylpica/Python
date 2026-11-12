@@ -85,6 +85,15 @@
         </details>
         <div class="vars-head">変数の状態（実行後）</div>
         <div id="varsView" class="vars-view">まだ実行していません</div>
+        <div class="vars-head sim-head">コード説明
+          <span class="sim-modes" role="group" aria-label="コード説明の表示方法">
+            <button id="simModeAuto" type="button" class="sim-mode-btn">自動で表示</button><button id="simModeManual" type="button" class="sim-mode-btn">ボタンで表示</button>
+          </span>
+        </div>
+        <div id="simPanel" class="sim-panel">
+          <div id="simManualRow" class="sim-manual-row hidden"><button id="simRunBtn" type="button" class="primary">▶ コードを説明する</button></div>
+          <div id="simBody" class="sim-body"><p class="note">コードを書くと、実行しなくても動きを説明します。</p></div>
+        </div>
       </div>
 
       <aside class="panel ref-panel">
@@ -202,6 +211,8 @@
     </div>
   </section>
 </main>
+<script src="lib/sim.js"></script>
+<script src="lib/sim-ui.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

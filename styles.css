@@ -159,3 +159,19 @@ a{color:var(--acc)}
 @media (max-width:600px){ .nav{gap:2px} .navbtn{font-size:12.5px;padding:4px 6px;min-height:34px} }
 /* FINAL-B(7) L-3: touch targets at least 40px on phones for file row buttons */
 @media (max-width:600px){ .file-list .facts button{min-width:40px;min-height:36px} }
+
+/* コード説明パネル（lib/sim-ui.js） */
+.sim-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sim-modes{display:inline-flex;gap:4px}
+.sim-mode-btn{font-size:13px;padding:3px 9px}
+.sim-mode-btn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.sim-panel{border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--bg)}
+.sim-manual-row{margin-bottom:6px}
+.sim-sec h4{margin:6px 0 4px;font-size:14px}
+.sim-fix{color:var(--mut);font-size:13px;margin-top:2px}
+.sim-steps{list-style:none;margin:4px 0;padding:0;font-size:14px}
+.sim-steps li{padding:2px 0;border-bottom:1px dashed var(--line)}
+.sim-steps li:last-child{border-bottom:none}
+.sim-line{background:none;border:none;padding:0 2px;color:var(--acc);cursor:pointer;font-size:12px;text-decoration:underline}
+.sim-out{font-family:ui-monospace,monospace;font-size:13px;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0;white-space:pre-wrap;word-break:break-word}
+.sim-foot{margin-top:8px}

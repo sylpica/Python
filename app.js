@@ -172,6 +172,19 @@ window.__goLesson = id => { showView('lessons'); selectLesson(id); };
 window.__goMistake = id => { showView('mistakes'); selectMistake(id); };
 window.__goEnv = id => { showView('env'); const el = document.getElementById('env-' + id); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); } };
 window.__goQuiz = id => { showView('quiz'); const z = QUIZZES.find(x => x.id === id); if (!z) return; setQmode('choice'); quizQueue = [withShuffledOptions(z)]; quizIdx = 0; quizRight = 0; showChoice(); };
+/* コード説明パネル（lib/sim-ui.js）との連携口：今のファイルの内容・行ジャンプ・用語一覧 */
+window.__simHooks = {
+  code: () => editorValue(),
+  gotoLine(n){
+    if (editor) { editor.revealLineInCenter(n); editor.setPosition({ lineNumber: n, column: 1 }); editor.focus(); return; }
+    const ta = $('#editorFallback'); if (!ta || ta.classList.contains('hidden')) return;
+    const ls = ta.value.split('\n'); let pos = 0;
+    for (let i = 0; i < n - 1 && i < ls.length; i++) pos += ls[i].length + 1;
+    ta.focus(); ta.setSelectionRange(pos, pos);
+  },
+  terms: () => GLOSSARY.map(g => ({ id: g.id, ja: g.ja, en: g.en })),
+  goTerm: id => window.__goTerm(id)
+};
 function termChips(ids){ return (ids||[]).filter(id => termById[id]).map(id => `<button class="chip" onclick="__goTerm('${id}')">${esc(termById[id].ja)}</button>`).join(''); }
 function refChips(ids){ return (ids||[]).filter(id => refById[id]).map(id => `<button class="chip" onclick="__goRef('${id}')">${esc(refById[id].name)}</button>`).join(''); }
 
