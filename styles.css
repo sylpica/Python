@@ -157,3 +157,5 @@ a{color:var(--acc)}
 @media (max-width:600px){ .nav{flex-wrap:wrap;overflow:visible;gap:4px} .navbtn{white-space:normal;min-height:36px} #globalSearch,#fontSize,#sideSearch{min-height:36px} }
 /* FINAL-B(6) M-1: compact nav on phones keeps all nine modes visible in fewer rows */
 @media (max-width:600px){ .nav{gap:2px} .navbtn{font-size:12.5px;padding:4px 6px;min-height:34px} }
+/* FINAL-B(7) L-3: touch targets at least 40px on phones for file row buttons */
+@media (max-width:600px){ .file-list .facts button{min-width:40px;min-height:36px} }

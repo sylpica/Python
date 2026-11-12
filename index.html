@@ -27,7 +27,7 @@
     <button data-view="progress" class="navbtn">学習状況</button>
   </nav>
   <div class="top-actions">
-    <input id="globalSearch" type="search" placeholder="検索（関数・用語…）" aria-label="全体検索">
+    <input id="globalSearch" type="search" placeholder="検索" aria-label="全体検索">
     <button id="themeToggle" title="ライト/ダーク切替" aria-label="ライト/ダーク切替">🌗</button>
   </div>
 </header>
@@ -121,7 +121,7 @@
   <section id="view-lessons" class="view">
     <div class="split">
       <div class="list-col"><input id="lessonFilter" type="search" placeholder="レッスンを絞り込み" aria-label="レッスンを絞り込み"><div id="lessonList"></div></div>
-      <article id="lessonDetail" class="detail">左からレッスンを選んでください。</article>
+      <article id="lessonDetail" class="detail">一覧からレッスンを選んでください。</article>
     </div>
   </section>
 
@@ -149,7 +149,7 @@
         <select id="refSort" aria-label="並べ替え"><option value="importance">重要度順</option><option value="name">名前順</option><option value="category">カテゴリ順</option></select>
         <div id="refList"></div>
       </div>
-      <article id="refDetail" class="detail">左から項目を選んでください。</article>
+      <article id="refDetail" class="detail">一覧から項目を選んでください。</article>
     </div>
   </section>
 
@@ -161,7 +161,7 @@
         <select id="glossSort" aria-label="並べ替え"><option value="importance">重要度順</option><option value="name">名前順</option></select>
         <div id="glossList"></div>
       </div>
-      <article id="glossDetail" class="detail">左から用語を選んでください。</article>
+      <article id="glossDetail" class="detail">一覧から用語を選んでください。</article>
     </div>
   </section>
 
@@ -169,7 +169,7 @@
   <section id="view-mistakes" class="view">
     <div class="split">
       <div class="list-col"><input id="mistakeSearch" type="search" placeholder="エラーメッセージや症状で検索" aria-label="よくある間違いを検索"><div id="mistakeList"></div></div>
-      <article id="mistakeDetail" class="detail">左から項目を選んでください。</article>
+      <article id="mistakeDetail" class="detail">一覧から項目を選んでください。</article>
     </div>
   </section>
 
@@ -191,6 +191,7 @@
       <label class="fileup">バックアップを読込<input id="importData" type="file" accept=".json" hidden></label>
       <button id="wipeBtn">データ初期化</button>
     </div>
+    <div id="restoreBox"></div>
     <h3>演習履歴</h3><div id="historyView"></div>
     <h3>ブックマーク</h3><div id="bookmarkView"></div>
     <div class="foot-note">

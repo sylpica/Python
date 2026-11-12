@@ -52,7 +52,7 @@ export const TEMPLATES = [
     id: 'tpl-fileio', title: 'ファイルの読み書き', level: '応用', file: 'tpl_fileio.py',
     code: 'with open("study_memo.txt", "w", encoding="utf-8") as f:\n    f.write("一行目\\n二行目\\n")\n\nwith open("study_memo.txt", encoding="utf-8") as f:\n    lines = f.read().splitlines()\nprint(len(lines), "行")\nprint(lines[0])',
     expected: '2 行\n一行目',
-    explain: 'with 文（コンテキストマネージャ）でファイルを開くと、ブロックを抜けるときに自動で閉じられます。このアプリではブラウザ内の仮想ファイルシステムに書かれるので、左のファイル一覧に study_memo.txt が増えるのも確認できます。書き込む文章を変えて、読み戻した結果と比べてください。'
+    explain: 'with 文（コンテキストマネージャ）でファイルを開くと、ブロックを抜けるときに自動で閉じられます。このアプリではブラウザ内の仮想ファイルシステムに書かれるので、ファイル一覧に study_memo.txt が増えるのも確認できます。書き込む文章を変えて、読み戻した結果と比べてください。'
   },
   {
     id: 'tpl-csv', title: 'CSVの集計', level: '応用', file: 'tpl_csv.py',

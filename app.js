@@ -81,7 +81,7 @@ function setStatus(t){ $('#kernelStatus').textContent = t; }
 function newWorker(){
   if (worker) worker.terminate();
   flushPending('カーネルが再起動されたため、この実行は完了しませんでした');
-  const myGen = ++gen; kernelState = 'starting'; setStatus('カーネル起動中…（初回は Python 本体を数MBダウンロードします）'); $('#kernelRetry').classList.add('hidden');
+  const myGen = ++gen; kernelState = 'starting'; setStatus('カーネル起動中…（初回は約18MB（エディタ込み）をダウンロードします）'); $('#kernelRetry').classList.add('hidden');
   worker = new Worker('worker.js');
   clearTimeout(startTimer); clearTimeout(startTimer2);
   startTimer2 = setTimeout(() => { if (myGen === gen && kernelState === 'starting') { kernelState = 'failed'; setStatus('カーネルの起動がタイムアウトしました（回線が不安定、またはCDNに接続できません）。'); $('#kernelRetry').classList.remove('hidden'); flushPending('Python の起動がタイムアウトしました。「再試行」を押してください。'); } }, 90000);
@@ -807,8 +807,15 @@ function renderProgress(){
     <div class="card"><h4>復習対象</h4><p>${progress.wrong.length} 件 ${progress.wrong.length ? '<button onclick="showView(\'quiz\');__reviewWrong()">復習する</button>' : ''}</p></div>
     <div class="card"><h4>収録コンテンツ</h4><p>レッスン ${LESSONS.length}／四択 ${QUIZZES.length}／穴埋め ${FILLS.length}／コーディング ${CODING.length}／バグ修正 ${BUGS.length}／リファレンス ${REFERENCE.length}／用語 ${GLOSSARY.length}／間違い ${MISTAKES.length}</p></div>`;
   $('#historyView').innerHTML = progress.history.slice(-30).reverse().map(h => `<button class="item" data-open-key="${esc(h.key)}">${h.ok ? '✅' : '❌'} ${esc(labelOf(h.key))} <span class="meta">${esc(String(h.t).slice(0, 16).replace('T', ' '))}</span></button>`).join('') || 'まだ履歴がありません';
+  const hasBefore = store.get('before-import', null);
+  $('#restoreBox').innerHTML = hasBefore ? '<button id="restoreBtn">直前の読込を取り消す（読込前のデータに戻す）</button>' : '';
   $('#bookmarkView').innerHTML = progress.bookmarks.map(b => `<button class="chip" data-open-key="${esc(b)}">${esc(labelOf(b))}</button>`).join('') || 'なし';
 }
+$('#restoreBtn') && $('#restoreBtn').addEventListener('click', () => {
+  const b = store.get('before-import', null); if (!b || !confirm('直前の読込を取り消し、読込前のデータに戻します。よろしいですか？')) return;
+  files = normalizeFiles(b.files); progress = normalizeProgress(b.progress, QUIZZES); nbCells = normalizeNotebook(b.notebook);
+  saveFiles(); saveProgress(); saveNotebook(); currentFile = Object.keys(files)[0]; setEditorValue(displayText(currentFile)); renderTabs(); renderNotebook(); renderProgress(); renderLessonList(); banner('読込前のデータに戻しました。', 'ok');
+});
 $('#exportBtn').addEventListener('click', () => {
   syncCurrent();
   const data = { app: 'python-studio', schema: SCHEMA, exportedAt: new Date().toISOString(), files, currentFile, progress, notebook: nbCells, notebookMeta: nbMeta,
