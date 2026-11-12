@@ -6,7 +6,7 @@
      same origin (sylpica.github.io/…) keep their caches. */
 const VERSION = 'v8';
 const APP_CACHE = 'python-studio-app-' + VERSION;
-const CDN_CACHE = 'python-studio-cdn-v1';
+const CDN_CACHE = 'python-studio-cdn-' + VERSION;
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'lib/core.js', 'worker.js', 'runtime/pystudio.py', 'runtime/pystudio_mpl.py',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'icon-maskable-512.png', 'data/lessons.js', 'data/quizzes.js', 'data/reference.js', 'data/glossary.js', 'data/extras.js', 'data/templates.js'];
 const CDN_HOSTS = ['cdn.jsdelivr.net'];

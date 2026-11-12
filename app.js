@@ -23,7 +23,15 @@ function banner(text, kind = 'warn', actions = ''){
 const PREFIX = 'pystudio:';
 let storageWarned = false;
 const store = {
-  get(k, d){ try { const v = localStorage.getItem(PREFIX + k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  get(k, d){
+    let v = null;
+    try { v = localStorage.getItem(PREFIX + k); return v == null ? d : JSON.parse(v); }
+    catch(e){
+      // never silently discard a value we could not read: keep a copy before falling back to the default
+      try { if (v != null && localStorage.getItem('pystudio:corrupt-' + k) == null) localStorage.setItem('pystudio:corrupt-' + k, v); } catch(e2){}
+      return d;
+    }
+  },
   set(k, v){
     try { localStorage.setItem(PREFIX + k, JSON.stringify(v)); return true; }
     catch(e){
@@ -51,6 +59,8 @@ function saveNotebook(){ const a = store.set('notebook', nbCells); const b = nbM
 // keep the stored text byte-exact (e.g. CRLF) unless the user really edited it
 // Another tab saved: adopt its state before we save again, so this tab can never write back a stale copy.
 window.addEventListener('storage', e => {
+  if (e.key === PREFIX + 'progress' && e.newValue) { try { progress = normalizeProgress(JSON.parse(e.newValue), QUIZZES); renderLessonList(); } catch(err){} return; }
+  if (e.key === PREFIX + 'notebook' && e.newValue) { try { nbCells = normalizeNotebook(JSON.parse(e.newValue)); if (!$('#view-notebook').classList.contains('active') || !nbCells.length) renderNotebook(); } catch(err){} return; }
   if (e.key !== PREFIX + 'files' || !e.newValue) return;
   try {
     const other = normalizeFiles(JSON.parse(e.newValue));
@@ -104,6 +114,7 @@ let inflight = 0;   // runs from anywhere (Studio, Notebook, lessons, quizzes): 
 const syncStop = () => { for (const id of ['#stopBtn', '#nbStop']) $(id).disabled = inflight <= 0; };
 function runPython(code, opts = {}, onStream){
   // every execution / reset goes through one queue: no interleaved stdout or kernel state
+  if (kernelState === 'failed') return Promise.resolve({ type:'result', segs:[{ s:'err', t:'Python が起動していません。画面の「再試行」を押してください。\n' }], error:{ type:'Interrupted', message:'kernel not started', text:'' }, images:[], vars:[], ms:0, syntax:null, warnings:[] });
   inflight++; syncStop();
   const p = enqueue(() => callWorker({ type:'run', code, files: opts.files, stdin: opts.stdin ?? '', isolated: !!opts.isolated,
     wantLast: !!opts.wantLast, filename: opts.filename || 'main.py', stream: !!onStream }, onStream));
@@ -325,13 +336,18 @@ function downloadFile(name){
   const blob = isBinary(v) ? new Blob([b64ToBytes(v.slice(7))]) : new Blob([v], { type: 'text/plain;charset=utf-8' });
   downloadBlob(name.split('/').pop(), blob);
 }
-function mergeChanges(ch){
+function mergeChanges(ch, before){
   if (!ch) return '';
-  const notes = [];
-  for (const c of ch.changed) { files[c.name] = c.content; notes.push(c.name); }
+  const notes = [], kept = [];
+  for (const c of ch.changed) {
+    if (before && before[c.name] !== undefined && files[c.name] !== before[c.name]) { kept.push(c.name); continue; }   // the user edited it during the run
+    files[c.name] = c.content; notes.push(c.name);
+  }
   for (const n of ch.deleted) if (n !== currentFile && files[n] != null && Object.keys(files).length > 1) delete files[n];
   if (ch.changed.length || ch.deleted.length) { saveFiles(); renderTabs(); if (ch.changed.some(c => c.name === currentFile)) setEditorValue(displayText(currentFile)); }
   let msg = notes.length ? `プログラムが作成・更新したファイルをファイル一覧に反映しました: ${notes.join(', ')}` : '';
+  if (kept.length) msg += (msg ? '\n' : '') + `実行中に編集された内容を残すため、プログラムの書込みは反映しなかったファイル: ${kept.join(', ')}`;
+  if (ch.deleted.length) msg += (msg ? '\n' : '') + `プログラムが削除したファイル（一覧から外しました）: ${ch.deleted.join(', ')}`;
   if (ch.tooLarge.length) msg += (msg ? '\n' : '') + `大きすぎるため一覧に保存しなかったファイル（実行中のカーネル内には残っています）: ${ch.tooLarge.map(t => t.name + '（' + Math.round(t.size / 1024) + 'KB）').join(', ')}`;
   return msg;
 }
@@ -347,11 +363,12 @@ async function runCurrent(){
   reveal('consoleHead');
   const con = $('#console'); con.innerHTML = ''; $('#plotArea').innerHTML = ''; $('#runTime').textContent = '';
   let streamed = '';
+  const snapshotAtStart = { ...files };
   setRunning(1);
   const res = await runPython(code, { files, stdin: $('#stdinBox').value, filename: currentFile }, segs => { streamed += segsHtml(segs); con.innerHTML = streamed; con.scrollTop = con.scrollHeight; });
   setRunning(-1);
   $('#runTime').textContent = `（${res.ms} ms）`;
-  const changeMsg = mergeChanges(res.changes);
+  const changeMsg = mergeChanges(res.changes, snapshotAtStart);
   con.innerHTML = outputHtml(res) + (changeMsg ? `\n<span class="cnote">${esc(changeMsg)}</span>` : '');
   $('#plotArea').innerHTML = imagesHtml(res.images);
   renderVars(res.vars);
@@ -383,7 +400,7 @@ $('#fileUpload').addEventListener('change', async e => {
     const buf = new Uint8Array(await f.arrayBuffer());
     let text = null;
     // keep bytes exactly: UTF-8 (without BOM) is stored as text, anything else as binary
-    try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(buf); if (text.charCodeAt(0) === 0xFEFF) text = null; } catch(err2) { text = null; }
+    try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(buf); if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); } catch(err2) { text = null; }
     if (text === null) { let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000)); files[f.name] = 'base64:' + btoa(bin); }
     else files[f.name] = text;
   }
@@ -804,9 +821,10 @@ $('#importData').addEventListener('change', async e => {
     const d = JSON.parse(await f.text());
     if (!d || typeof d !== 'object' || !(d.files || d.progress || d.notebook)) throw new Error('Python Studio のバックアップ形式ではありません');
     const nf = d.files ? normalizeFiles(d.files) : null;
+    if (nf) for (const k of Object.keys(nf)) { if (nameConflict(k, nf, k)) delete nf[k]; }   // A-13: names that collide with a folder/file are dropped
     const summaryText = `${nf ? Object.keys(nf).length + 'ファイル、' : ''}${d.progress ? '学習記録、' : ''}${d.notebook ? 'Notebook、' : ''}`.replace(/、$/, '');
     if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n読み込むと現在のデータは置き換わります。元に戻せないため、先に「全データを書出（JSON）」でバックアップを取ってください（直前の状態はブラウザ内に残りますが、この画面からは復元できません）。`)) return;
-    const hist = store.get('before-import-history', []); hist.unshift({ files, progress, notebook: nbCells, at: new Date().toISOString() }); store.set('before-import-history', hist.slice(0, 5));
+    const hist = store.get('before-import-history', []); hist.unshift({ files, progress, notebook: nbCells, at: new Date().toISOString() }); store.set('before-import-history', hist.slice(0, 1));
     if (!store.set('before-import', hist[0]) && !confirm('現在のデータを退避できません（保存容量が足りません）。このまま読み込むと現在のデータは失われます。続けますか？')) return;
     if (nf) { files = nf; currentFile = d.currentFile && nf[d.currentFile] != null ? d.currentFile : Object.keys(files)[0]; }
     if (d.progress) progress = normalizeProgress(d.progress, QUIZZES);
