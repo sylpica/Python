@@ -101,7 +101,7 @@ export const MISTAKES = [
   "bad": "def add_item(item, items=[]):\n    items.append(item)\n    return items\nprint(add_item(1))\nprint(add_item(2))",
   "phenomenon": "2回目の呼び出しで [1, 2] となり、前回の結果が残ってしまう。",
   "cause": "デフォルト値は関数定義時に1度だけ作られ、リストのような変更可能なオブジェクトは呼び出し間で共有される。",
-  "good": "def add_item(item, items=None):\n    if items is None:\n        items = []\n    items.append(item)\n    return items",
+  "good": "def add_item(item, items=None):\n    if items is None:\n        items = []\n    items.append(item)\n    return items\nprint(add_item(1))\nprint(add_item(2))",
   "related": [
    "mutable",
    "argument",
@@ -196,7 +196,7 @@ export const PACKAGES = [
   "install": "python -m pip install numpy",
   "browser": "import で利用可",
   "official": "https://numpy.org/",
-  "browserNote": "Pyodide 同梱 1.26.4。import すると自動で読み込みます",
+  "browserNote": "Pyodide 同梱 1.26.4。ファイル先頭の import 文で自動で読み込みます",
   "sample": "import numpy as np\na = np.array([1, 2, 3])\nprint(a * 10, a.mean())"
  },
  {
@@ -378,7 +378,7 @@ export const ENV_LESSONS = [
  {
   "id": "install-and-path",
   "title": "インストールとPATH",
-  "body": "PythonをPCにインストールする際は、公式サイトのインストーラを使うのが基本です。Windowsでは、Python 3.14 以降は公式の Python install manager での導入が推奨され、導入後はターミナルから python を使えます。従来のインストーラ（3.15 まで提供）を使う場合は、インストール時にPATHへ追加する設定を有効にしないと、ターミナルからpythonコマンドが見つかりません。PATHとは、コマンド名から実行ファイルの場所を探すための仕組みで、OSが管理する検索リストのようなものです。インストール後はターミナルでpython --versionと表示されるか必ず確認してください。表示されない場合は、インストール先やPATH設定を見直します。macOSやLinuxではOS付属のPythonと自分で入れたPythonが混在することがあるため、どのPythonが起動しているかをwhich（Windowsのコマンドプロンプトでは where python、PowerShellでは Get-Command python）で確認する習慣が大切です。",
+  "body": "PythonをPCにインストールする際は、公式サイトのインストーラを使うのが基本です。Windowsでは、公式サイトが Python install manager での導入を案内しており、導入後はターミナルから python を使えます。従来のインストーラを使う場合は、インストール時にPATHへ追加する設定を有効にしないと、ターミナルからpythonコマンドが見つかりません。PATHとは、コマンド名から実行ファイルの場所を探すための仕組みで、OSが管理する検索リストのようなものです。インストール後はターミナルでpython --versionと表示されるか必ず確認してください。表示されない場合は、インストール先やPATH設定を見直します。macOSやLinuxではOS付属のPythonと自分で入れたPythonが混在することがあるため、どのPythonが起動しているかをwhich（Windowsのコマンドプロンプトでは where python、PowerShellでは Get-Command python）で確認する習慣が大切です。",
   "points": [
    "公式インストーラを使う",
    "PATH追加を忘れない",
