@@ -55,6 +55,33 @@ await test('M-1 phone nav uses at most two rows at 375px and keeps all nine mode
 await test('A-01 lesson completion from another tab is kept', async () => { const m = await browser.newContext(); const a2 = await m.newPage(); await a2.goto(BASE); await a2.waitForSelector('#runBtn'); const b2 = await m.newPage(); await b2.goto(BASE); await b2.waitForSelector('#runBtn'); await a2.waitForTimeout(300); await b2.waitForTimeout(300); await a2.evaluate(() => { const p = JSON.parse(localStorage.getItem('pystudio:progress') || '{"lessonsDone":[],"history":[],"bookmarks":[],"wrong":[]}'); p.lessonsDone = ['variables-types']; localStorage.setItem('pystudio:progress', JSON.stringify(p)); }); await b2.waitForTimeout(400); await b2.evaluate(() => { const p = JSON.parse(localStorage.getItem('pystudio:progress')); p.lessonsDone = [...p.lessonsDone, 'operators']; localStorage.setItem('pystudio:progress', JSON.stringify(p)); }); await b2.waitForTimeout(300); const done = await b2.evaluate(() => JSON.parse(localStorage.getItem('pystudio:progress')).lessonsDone); eq(done.includes('variables-types') && done.includes('operators'), true, JSON.stringify(done)); await m.close(); });
 await test('A-04 corrupt stored files are copied aside, not silently lost', async () => { const m = await browser.newContext(); await m.addInitScript(() => { if (!localStorage.getItem('pystudio:corrupt-files')) localStorage.setItem('pystudio:files', '{"precious.py": "KEEP ME", "main.py": "x=1'); }); const p2 = await m.newPage(); await p2.goto(BASE); await p2.waitForSelector('#runBtn'); eq(await p2.evaluate(() => localStorage.getItem('pystudio:corrupt-files')), '{"precious.py": "KEEP ME", "main.py": "x=1'); await m.close(); });
 await test('M-2 a backup import can be undone from the progress screen', async () => { const m = await browser.newContext(); const p2 = await m.newPage(); p2.on('dialog', d => d.accept()); await p2.goto(BASE); await p2.waitForSelector('#runBtn'); await p2.evaluate(() => { localStorage.setItem('pystudio:files', JSON.stringify({ 'main.py': 'ORIGINAL' })); }); await p2.reload(); await p2.waitForSelector('#runBtn'); await p2.evaluate(() => localStorage.setItem('pystudio:before-import', JSON.stringify({ files: { 'main.py': 'ORIGINAL' }, progress: { lessonsDone: [], history: [], bookmarks: [], wrong: [] }, notebook: [] }))); await p2.click('[data-view="progress"]'); await p2.click('#restoreBtn'); await p2.waitForTimeout(300); eq(await p2.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('pystudio:files')))), ['main.py']); await m.close(); });
+await test('SIM explanation panel: predicts output, jumps to line, links terms, remembers mode', async () => {
+  const m = await browser.newContext({ viewport: { width: 1280, height: 900 } }); const p2 = await m.newPage();
+  await p2.goto(BASE); await p2.waitForFunction(() => window.monaco && window.PySim, null, { timeout: 60000 });
+  await p2.evaluate(() => window.monaco.editor.getEditors()[0].setValue('def double(n):\n    return n * 2\nx = 5\nprint(double(x))\nprint(round(2.5), end="!")\nprint()'));
+  await p2.waitForFunction(() => (document.querySelector('#simBody .sim-out') || {}).textContent === '10\n2!', null, { timeout: 10000 });
+  const vars = await p2.textContent('#simBody .vars-view'); ok(vars.includes('x = 5'), vars);
+  const firstLine = p2.locator('#simBody .sim-steps .sim-line').first(); const ln = Number(await firstLine.getAttribute('data-line'));
+  await firstLine.click(); eq(await p2.evaluate(() => window.monaco.editor.getEditors()[0].getPosition().lineNumber), ln);
+  const term = p2.locator('#simBody .sim-term').first(); ok(await term.count() > 0, 'term link present');
+  const termText = await term.textContent(); await term.click(); await p2.waitForTimeout(200);
+  ok((await p2.textContent('#glossDetail')).includes(termText), 'glossary opened for ' + termText);
+  await p2.click('[data-view="studio"]'); await p2.click('#simModeManual'); await p2.reload();
+  await p2.waitForFunction(() => window.PySim && document.querySelector('#simModeManual'), null, { timeout: 60000 }); await p2.waitForTimeout(600);
+  eq(await p2.getAttribute('#simModeManual', 'aria-pressed'), 'true'); ok(!(await p2.locator('#simManualRow').getAttribute('class')).includes('hidden'));
+  await p2.click('#simRunBtn'); await p2.waitForSelector('#simBody .sim-out'); await p2.click('#simModeAuto'); await m.close();
+});
+await test('SIM explanation panel: 375px layout has no horizontal overflow and stays readable', async () => {
+  const m = await browser.newContext({ viewport: { width: 375, height: 800 } }); const p2 = await m.newPage();
+  await p2.goto(BASE); await p2.waitForFunction(() => window.monaco && window.PySim, null, { timeout: 60000 });
+  await p2.evaluate(() => window.monaco.editor.getEditors()[0].setValue('nums = [3, 1, 2]\nfor n in sorted(nums):\n    print("value:", n, "and a long label to test wrapping behaviour")\nname = input()\nprint(name)'));
+  await p2.waitForFunction(() => ((document.querySelector('#simBody .sim-out') || {}).textContent || '').includes('入力された値'), null, { timeout: 10000 });
+  const r = await p2.evaluate(() => { const b = document.querySelector('#simPanel').getBoundingClientRect(); return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, left: b.left, right: b.right, over: [...document.querySelectorAll('#simPanel *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1).length }; });
+  ok(r.sw <= r.cw + 1, 'page overflow ' + JSON.stringify(r)); ok(r.left >= 0 && r.right <= 376, 'panel ' + JSON.stringify(r)); eq(r.over, 0);
+  ok((await p2.textContent('#simBody .sim-out')).includes('（入力された値）'), 'runtime value shown honestly');
+  await p2.screenshot({ path: new URL('./output/sim-375.png', import.meta.url).pathname, fullPage: false }).catch(() => {});
+  await m.close();
+});
 await test('no uncaught page errors', async () => { eq(errors.filter(e => !/favicon|Failed to load resource/.test(e)), []); });
 await page.screenshot({ path: new URL('./output/studio-1280.png', import.meta.url).pathname }).catch(() => {});
 await browser.close();
