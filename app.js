@@ -805,7 +805,7 @@ $('#importData').addEventListener('change', async e => {
     if (!d || typeof d !== 'object' || !(d.files || d.progress || d.notebook)) throw new Error('Python Studio のバックアップ形式ではありません');
     const nf = d.files ? normalizeFiles(d.files) : null;
     const summaryText = `${nf ? Object.keys(nf).length + 'ファイル、' : ''}${d.progress ? '学習記録、' : ''}${d.notebook ? 'Notebook、' : ''}`.replace(/、$/, '');
-    if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n現在のデータは直前5回分まで自動で退避します（ブラウザの保存領域に残り、この画面からは復元できません）。`)) return;
+    if (!confirm(`バックアップ（${summaryText}）で現在のデータを置き換えます。よろしいですか？\n読み込むと現在のデータは置き換わります。元に戻せないため、先に「全データを書出（JSON）」でバックアップを取ってください（直前の状態はブラウザ内に残りますが、この画面からは復元できません）。`)) return;
     const hist = store.get('before-import-history', []); hist.unshift({ files, progress, notebook: nbCells, at: new Date().toISOString() }); store.set('before-import-history', hist.slice(0, 5));
     if (!store.set('before-import', hist[0]) && !confirm('現在のデータを退避できません（保存容量が足りません）。このまま読み込むと現在のデータは失われます。続けますか？')) return;
     if (nf) { files = nf; currentFile = d.currentFile && nf[d.currentFile] != null ? d.currentFile : Object.keys(files)[0]; }
