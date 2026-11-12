@@ -668,6 +668,7 @@ $('#quizArea').addEventListener('click', e => {
   const z = quizQueue[quizIdx]; const pick = Number(b.dataset.opt); const ok = pick === z.answer;
   if (ok) quizRight++;
   recordQuiz(qkey(z), ok);
+  $('#quizScore').textContent = `問題 ${quizIdx + 1} / ${quizQueue.length} ・ 正解 ${quizRight}`; // 回答直後に正解数を反映する（次の問題へ進むまで古い数が残らないように）
   $$('#quizArea .opt').forEach((o, i) => { o.disabled = true; if (i === z.answer) o.classList.add('correct'); else if (i === pick) o.classList.add('wrong'); });
   const lessonBtn = (!ok && z.lesson && lessonById[z.lesson]) ? `<button onclick="__goLesson('${z.lesson}')">📖 関連レッスン「${esc(lessonById[z.lesson].title)}」で復習</button> ` : '';
   const tryBtn = z.code ? `<button data-try-code="1">Studioで試す</button> ` : '';
