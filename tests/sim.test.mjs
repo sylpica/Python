@@ -30,4 +30,9 @@ await test('丸括弧つき分割代入', async () => { eq(out('for i, (a, b) in
 await test('対応外（class）は正直に注記し、後続は続ける', async () => { const r = simulatePython('class A:\n    pass\nprint("done")'); eq(r.output, ['done']); ok(r.diags.some(d => d.level === 'note' && d.kind === '対応外')); });
 await test('壊れた入力でも例外を投げず診断を返す', async () => { for (const c of ['x = (', 'def f(', 'print("', 'a = {', 'x = * 2', 'for x in']) { const r = simulatePython(c); ok(Array.isArray(r.diags), c); } });
 await test('最終状態に変数と型が出る', async () => { const r = simulatePython('a = [1, 2]\nb = "x"'); eq(r.vars.map(v => v.name + ':' + v.type).join(','), 'a:list,b:str'); });
+await test('*args / **kwargs / キーワード専用引数', async () => { eq(out('def total(*args, start=0):\n    return start + sum(args)\nprint(total(1, 2, 3), total(10, 20, start=5))'), ['6 35']); eq(out('def t(*args, **kw):\n    return sum(args) + sum(kw.values())\nprint(t(1, 2, bonus=10))'), ['13']); });
+await test('ジェネレータ式を引数に渡せる', async () => { eq(out('print(sum(x * x for x in range(4)))'), ['14']); });
+await test('type().__name__ と __annotations__', async () => { eq(out('print(type(20).__name__, type(1.5).__name__)'), ['int float']); eq(out('def d(x: int) -> int:\n    return x\nprint(d.__annotations__)'), ["{'x': <class 'int'>, 'return': <class 'int'>}"]); });
+await test('try/except は対応外として注記し、後続を止めない', async () => { const r = simulatePython('try:\n    x = 1\nexcept:\n    x = 2\nprint("after")'); eq(r.output, ['after']); ok(r.diags.some(d => d.kind === '対応外')); });
+await test('デコレータ行と型注釈つき def', async () => { eq(out('def deco(f):\n    return f\n@deco\ndef g(x: int) -> int:\n    return x + 1\nprint(g(41))'), ['42']); });
 summary('sim ');
