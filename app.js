@@ -624,7 +624,7 @@ function startQuiz(){
 function showChoice(){
   const z = quizQueue[quizIdx];
   if (!z) { $('#quizArea').innerHTML = `<div class="explain">終了: ${quizRight} / ${quizQueue.length} 正解</div><div class="toolbar"><button class="primary" onclick="__restartQuiz()">もう一度</button>${progress.wrong.length ? '<button onclick="__reviewWrong()">間違えた問題を復習</button>' : ''}</div>`; $('#quizScore').textContent = ''; return; }
-  $('#quizScore').textContent = `${quizIdx + 1} / ${quizQueue.length}　正解 ${quizRight}`;
+  $('#quizScore').textContent = `問題 ${quizIdx + 1} / ${quizQueue.length} ・ 正解 ${quizRight}`;
   const isFill = z.question == null;
   $('#quizArea').innerHTML = `<p>${isFill ? '<span class="badge">穴埋め</span>' : `<span class="badge">${esc(z.category)}</span><span class="badge">${esc(z.level)}</span>`} ${bmButton(qkey(z))}</p>
   ${isFill ? `<p><b>空欄 ___ に入るものを選んでください</b></p><pre class="code">${esc(z.q)}</pre>` : `<p><b>${esc(z.question)}</b></p>${z.code ? `<pre class="code">${esc(z.code)}</pre>` : ''}`}
