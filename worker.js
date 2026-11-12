@@ -41,8 +41,10 @@ function pushOut(stream, text, force) {
     streamBuf.push({ s: stream, t: text });
     const now = performance.now();
     if (now - lastStream > 150) flushStream(now);
+    else if (!flushTimer) flushTimer = setTimeout(() => { flushTimer = null; flushStream(); }, 160);
   }
 }
+let flushTimer = null;
 function flushStream(now) {
   if (streamId == null || !streamBuf.length) return;
   postMessage({ type: 'stream', id: streamId, segs: streamBuf });
@@ -87,12 +89,13 @@ function syncFiles(files) {
 const FILE_LIMIT = 2 * 1024 * 1024, TOTAL_LIMIT = 4 * 1024 * 1024;
 function collectChanges() {
   // files the user's program created / changed / deleted in the project folder
-  const changed = [], tooLarge = [], deleted = []; let total = 0; const seen = new Set();
+  const changed = [], tooLarge = [], deleted = []; let total = 0; const seen = new Set(), seenHidden = new Set();
   const walk = (dir, rel) => {
     let names = []; try { names = pyodide.FS.readdir(dir); } catch (e) { return; }
     for (const n of names) {
-      if (n === '.' || n === '..' || n === '__pycache__' || n.startsWith('.')) continue;
       const path = dir + '/' + n, relName = rel ? rel + '/' + n : n; let st;
+      if (n === '.' || n === '..') continue;
+      if (n === '__pycache__' || n.startsWith('.')) { seenHidden.add(relName); continue; }   // kept on disk, not shown: must not be treated as deleted
       try { st = pyodide.FS.stat(path); } catch (e) { continue; }
       if (pyodide.FS.isDir(st.mode)) { walk(path, relName); continue; }
       seen.add(relName);
@@ -108,7 +111,7 @@ function collectChanges() {
     }
   };
   walk(PROJECT, '');
-  for (const name of [...written.keys()]) if (!seen.has(name)) { deleted.push(name); written.delete(name); }
+  for (const name of [...written.keys()]) if (!seen.has(name) && !seenHidden.has(name) && ![...seenHidden].some(h => name.startsWith(h + '/'))) { deleted.push(name); written.delete(name); }
   return { changed, tooLarge, deleted };
 }
 
