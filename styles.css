@@ -153,3 +153,5 @@ a{color:var(--acc)}
 [data-theme="dark"] .navbtn.active,[data-theme="dark"] .qmode.active,[data-theme="dark"] button.primary,[data-theme="dark"] .tabbar button.active,
 [data-theme="dark"] .file-list li.active,[data-theme="dark"] .side-tabs button.active,[data-theme="dark"] .opt.correct,[data-theme="dark"] .opt.wrong,
 [data-theme="dark"] .opt.correct .optno,[data-theme="dark"] .opt.wrong .optno{color:#0d1117}
+/* FINAL-B(4) F-01/F-02: on phones the nav wraps onto rows so every mode is visible; controls get 36px targets */
+@media (max-width:600px){ .nav{flex-wrap:wrap;overflow:visible;gap:4px} .navbtn{white-space:normal;min-height:36px} #globalSearch,#fontSize,#sideSearch{min-height:36px} }
