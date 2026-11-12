@@ -9,11 +9,13 @@ import { test, ok, summary } from './lib/mini-test.mjs';
 const require = createRequire(import.meta.url);
 const { simulatePython } = require('../lib/sim.js');
 const fx = require('./fixtures/sim-cpython312.json');
+// 第2ラウンド監査の指摘30件の最小再現（tests/tools/gen-sim-r2-fixture.py で生成）。最終的な変数の値も照合する
+const fx2 = require('./fixtures/sim-cpython-r2.json');
 const PH = /（[^（）]*）/;
 const wild = a => new RegExp('^' + a.split(PH).map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*') + '$');
 const groups = {};
-for (const c of fx.cases) { const g = c.id.includes(':') ? c.id.split(':')[0] : c.id.replace(/\d+$/, ''); (groups[g] = groups[g] || []).push(c); }
-for (const [g, cs] of Object.entries(groups)) await test(`CPython ${fx.python} と一致: ${g}（${cs.length}件）`, async () => {
+for (const c of [...fx.cases, ...fx2.cases]) { const g = c.id.includes(':') ? c.id.split(':')[0] : c.id.replace(/\d+$/, ''); (groups[g] = groups[g] || []).push(c); }
+for (const [g, cs] of Object.entries(groups)) await test(`CPython ${g === 'r2' ? fx2.python : fx.python} と一致: ${g}（${cs.length}件）`, async () => {
   const bad = [];
   for (const c of cs) {
     let s; try { s = simulatePython(c.code); } catch (e) { bad.push(c.id + ' CRASH ' + e); continue; }
@@ -28,6 +30,7 @@ for (const [g, cs] of Object.entries(groups)) await test(`CPython ${fx.python} �
     if (c.err && serr && serr.kind !== c.err && !/無限ループ/.test(serr.kind)) bad.push(`${c.id} エラーの種類 sim=${serr.kind} cpython=${c.err}`);
     if (c.err && !serr && !notes && !s.output.some(l => PH.test(l))) bad.push(`${c.id} エラーを見逃し cpython=${c.err}`);
     if (!c.err && serr) bad.push(`${c.id} 正しいコードをエラーと判定 ${serr.kind}`);
+    if (c.vars && !serr) for (const v of s.vars) if (v.name in c.vars && v.value !== c.vars[v.name] && !(PH.test(v.value) && wild(v.value).test(c.vars[v.name]))) bad.push(`${c.id} 変数 ${v.name} sim=${v.value} cpython=${c.vars[v.name]}`);
   }
   ok(!bad.length, bad.slice(0, 8).join('\n'));
 });

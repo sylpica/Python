@@ -1,0 +1,338 @@
+{
+ "python": "3.13.18",
+ "cases": [
+  {
+   "id": "r2:F01-genexp-next",
+   "code": "g = (x for x in range(3))\nnext(g)\nprint(list(g))\nprint(list(g))",
+   "out": [
+    "[1, 2]",
+    "[]"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:F02-genexp-var",
+   "code": "gen = (x * x for x in range(4))\nprint(next(gen))\nprint(next(gen))\nn = len(list(gen))",
+   "out": [
+    "0",
+    "1"
+   ],
+   "err": null,
+   "vars": {
+    "n": "2"
+   }
+  },
+  {
+   "id": "r2:F03-str-bigint",
+   "code": "s = str(10**50)\nprint(s[:5], len(s))",
+   "out": [
+    "10000 51"
+   ],
+   "err": null,
+   "vars": {
+    "s": "'100000000000000000000000000000000000000000000000000'"
+   }
+  },
+  {
+   "id": "r2:F04-str-mathpi",
+   "code": "import math\nprint(str(math.pi)[:4], math.pi, math.tau, math.e, math.inf, -math.inf)\nr = round(math.pi, 3)",
+   "out": [
+    "3.14 3.141592653589793 6.283185307179586 2.718281828459045 inf -inf"
+   ],
+   "err": null,
+   "vars": {
+    "r": "3.142"
+   }
+  },
+  {
+   "id": "r2:F05-round-huge",
+   "code": "x = round(1e308)\nprint(x == 1, round(1e16), round(2.5e15))",
+   "out": [
+    "False 10000000000000000 2500000000000000"
+   ],
+   "err": null,
+   "vars": {
+    "x": "100000000000000001097906362944045541740492309677311846336810682903157585404911491537163328978494688899061249669721172515611590283743140088328307009198146046031271664502933027185697489699588559043338384466165001178426897626212945177628091195786707458122783970171784415105291802893207873272974885715430223118336"
+   }
+  },
+  {
+   "id": "r2:F06-slice-assign",
+   "code": "x = [1, 2, 3]\nx[1:2] = []\nprint(x)\ny = [1, 2, 3]\ny[5:] = [9]\ny[:0] = [0]\nprint(y)",
+   "out": [
+    "[1, 3]",
+    "[0, 1, 2, 3, 9]"
+   ],
+   "err": null,
+   "vars": {
+    "x": "[1, 3]",
+    "y": "[0, 1, 2, 3, 9]"
+   }
+  },
+  {
+   "id": "r2:F07-slice-ext-del",
+   "code": "a = [1, 2, 3, 4, 5]\na[1:3] = [9]\ndel a[0]\na.insert(-1, 7)\nz = [1, 2, 3, 4]\nz[::2] = [0, 0]\nw = list(range(6))\ndel w[::2]\nprint(a, z, w)",
+   "out": [
+    "[9, 4, 7, 5] [0, 2, 0, 4] [1, 3, 5]"
+   ],
+   "err": null,
+   "vars": {
+    "a": "[9, 4, 7, 5]",
+    "z": "[0, 2, 0, 4]",
+    "w": "[1, 3, 5]"
+   }
+  },
+  {
+   "id": "r2:F08-dict-key-eq",
+   "code": "d = {1: \"a\", True: \"b\", 1.0: \"c\"}\ne = {0: \"a\", False: \"b\"}\nprint(d, len(d), e)",
+   "out": [
+    "{1: 'c'} 1 {0: 'b'}"
+   ],
+   "err": null,
+   "vars": {
+    "d": "{1: 'c'}",
+    "e": "{0: 'b'}"
+   }
+  },
+  {
+   "id": "r2:F09-dict-update",
+   "code": "d = {}\nd.update(a=1, b=2)\nd.update([(\"c\", 3)])\nd.update({\"a\": 0}, z=9)\nprint(d)",
+   "out": [
+    "{'a': 0, 'b': 2, 'c': 3, 'z': 9}"
+   ],
+   "err": null,
+   "vars": {
+    "d": "{'a': 0, 'b': 2, 'c': 3, 'z': 9}"
+   }
+  },
+  {
+   "id": "r2:F10-count-empty",
+   "code": "print(\"abc\".count(\"\"), \"\".count(\"\"), \"abc\".count(\"\", 1), \"abcabc\".count(\"bc\", 2))",
+   "out": [
+    "4 1 3 1"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:F11-set-order-int",
+   "code": "s = {3, 1, 2}\ns.add(5)\nt = set([3, 1])\nprint(s, t, {0, 7, 4})",
+   "out": [
+    "{1, 2, 3, 5} {1, 3} {0, 4, 7}"
+   ],
+   "err": null,
+   "vars": {
+    "s": "{1, 2, 3, 5}",
+    "t": "{1, 3}"
+   }
+  },
+  {
+   "id": "r2:F12-set-order-str",
+   "code": "u = set(\"ab\")\nprint(sorted(u), len(u))",
+   "out": [
+    "['a', 'b'] 2"
+   ],
+   "err": null,
+   "vars": {
+    "u": "{'b', 'a'}"
+   }
+  },
+  {
+   "id": "r2:F13-float-index",
+   "code": "print(\"abc\"[0.5])",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F14-float-chr",
+   "code": "print(chr(2.5))",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F15-int-base-nonstr",
+   "code": "print(int(2, 3))",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F16-int-base-range",
+   "code": "print(int(\"1\", 1))",
+   "out": [],
+   "err": "ValueError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F17-count-type",
+   "code": "print(\"abc\".count(1))",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F18-pop-type",
+   "code": "print([1, 2].pop(\"a\"))",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F19-pop-arity",
+   "code": "print([1, 2].pop(0, 0))",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:F20-type-builtin",
+   "code": "print(type(len), type(int), type(print).__name__)",
+   "out": [
+    "<class 'builtin_function_or_method'> <class 'type'> builtin_function_or_method"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:E01-split-args",
+   "code": "print(\"a b c\".split(\" \", 1), \"ab\".split(None), \"x y z\".rsplit(None, 1), \"a1b1c\".rsplit(\"1\", 1), \"  a  b \".split(None, 1), \"a,b\".split(sep=\",\"))",
+   "out": [
+    "['a', 'b c'] ['ab'] ['x y', 'z'] ['a1b', 'c'] ['a', 'b '] ['a', 'b']"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:E02-strip-chars",
+   "code": "print(\"xxhixx\".strip(\"x\"), \"--a--\".lstrip(\"-\"), \"--a--\".rstrip(\"-\"), \"abcba\".strip(\"ab\"), \" a \".strip(None))",
+   "out": [
+    "hi a-- --a c a"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:E03-start-args",
+   "code": "print([1, 2, 3, 2].index(2, 2), \"banana\".index(\"a\", 2), \"abc\".find(\"x\", -3), \"banana\".count(\"a\", 2), \"ab\".startswith(\"b\", 1), \"banana\".rfind(\"a\"), \"abc\".endswith((\"c\", \"z\")))",
+   "out": [
+    "3 3 -1 2 True 5 True"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:E04-dict-unpack",
+   "code": "d = {\"a\": 1}\nprint({**d, \"b\": 2, **{\"a\": 3}}, [*range(3), *\"ab\"], {*[1, 1]})",
+   "out": [
+    "{'a': 3, 'b': 2} [0, 1, 2, 'a', 'b'] {1}"
+   ],
+   "err": null,
+   "vars": {
+    "d": "{'a': 1}"
+   }
+  },
+  {
+   "id": "r2:E05-bool-int",
+   "code": "x = [1, 2]\nprint(abs(True), hex(True), bin(True), oct(False), x[True], x[-True], bool(), chr(True))",
+   "out": [
+    "1 0x1 0b1 0o0 2 2 False \u0001"
+   ],
+   "err": null,
+   "vars": {
+    "x": "[1, 2]"
+   }
+  },
+  {
+   "id": "r2:C01-chr-range",
+   "code": "print(chr(-1))",
+   "out": [],
+   "err": "ValueError",
+   "vars": {}
+  },
+  {
+   "id": "r2:C02-chr-big",
+   "code": "print(chr(1114112))",
+   "out": [],
+   "err": "ValueError",
+   "vars": {}
+  },
+  {
+   "id": "r2:M01-dict-size",
+   "code": "d = {\"a\": 1}\nfor k in d:\n    d[\"b\"] = 2",
+   "out": [],
+   "err": "RuntimeError",
+   "vars": {
+    "d": "{'a': 1, 'b': 2}",
+    "k": "'a'"
+   }
+  },
+  {
+   "id": "r2:M02-str-attr",
+   "code": "print(\"abc\".foo)",
+   "out": [],
+   "err": "AttributeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:M02b-list-method",
+   "code": "[1].push(2)",
+   "out": [],
+   "err": "AttributeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:M03-max-empty",
+   "code": "print(max())",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:M04-tuple-index",
+   "code": "print([1, 2, 3][1, 2])",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:M05-huge-float-index",
+   "code": "print([1, 2, 3][1e308])",
+   "out": [],
+   "err": "TypeError",
+   "vars": {}
+  },
+  {
+   "id": "r2:M06-math-sqrt",
+   "code": "import math\nprint(math.sqrt(16), math.floor(-2.5), math.ceil(2.1))\nprint(math.sqrt(-1))",
+   "out": [
+    "4.0 -3 3"
+   ],
+   "err": "ValueError",
+   "vars": {}
+  },
+  {
+   "id": "r2:X01-iter-next",
+   "code": "it = iter([1, 2, 3])\nprint(next(it), list(it), next(it, \"end\"))",
+   "out": [
+    "1 [2, 3] end"
+   ],
+   "err": null,
+   "vars": {}
+  },
+  {
+   "id": "r2:X02-set-loop-int",
+   "code": "for v in {2, 0, 1}:\n    print(v)",
+   "out": [
+    "0",
+    "1",
+    "2"
+   ],
+   "err": null,
+   "vars": {
+    "v": "2"
+   }
+  }
+ ]
+}

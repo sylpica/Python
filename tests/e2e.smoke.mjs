@@ -82,6 +82,18 @@ await test('SIM explanation panel: 375px layout has no horizontal overflow and s
   await p2.screenshot({ path: new URL('./output/sim-375.png', import.meta.url).pathname, fullPage: false }).catch(() => {});
   await m.close();
 });
+await test('SIM panel: values in quotes are not term-linked; manual mode marks a stale explanation', async () => {
+  const m = await browser.newContext({ viewport: { width: 1280, height: 900 } }); const p2 = await m.newPage();
+  await p2.goto(BASE); await p2.waitForFunction(() => window.monaco && window.PySim, null, { timeout: 60000 });
+  await p2.evaluate(() => window.monaco.editor.getEditors()[0].setValue('s = "関数と文字列"\nprint(s)'));
+  await p2.waitForFunction(() => ((document.querySelector('#simBody .sim-out') || {}).textContent || '').includes('関数と文字列'), null, { timeout: 10000 });
+  eq(await p2.locator('#simBody .sim-steps .sim-term').count(), 0);
+  await p2.click('#simModeManual'); await p2.click('#simRunBtn');
+  await p2.evaluate(() => window.monaco.editor.getEditors()[0].setValue('x = 1'));
+  await p2.waitForSelector('#simBody .sim-stale', { timeout: 5000 });
+  await p2.click('#simRunBtn'); await p2.waitForTimeout(1200); eq(await p2.locator('#simBody .sim-stale').count(), 0);
+  await p2.click('#simModeAuto'); await m.close();
+});
 await test('no uncaught page errors', async () => { eq(errors.filter(e => !/favicon|Failed to load resource/.test(e)), []); });
 await page.screenshot({ path: new URL('./output/studio-1280.png', import.meta.url).pathname }).catch(() => {});
 await browser.close();
