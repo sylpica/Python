@@ -175,3 +175,6 @@ a{color:var(--acc)}
 .sim-line{background:none;border:none;padding:0 2px;color:var(--acc);cursor:pointer;font-size:12px;text-decoration:underline}
 .sim-out{font-family:ui-monospace,monospace;font-size:13px;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0;white-space:pre-wrap;word-break:break-word}
 .sim-foot{margin-top:8px}
+/* コード説明: ダークテーマの選択中ボタンの文字は暗い色（白は約2.5:1で読みにくい） */
+[data-theme="dark"] .sim-mode-btn.active{color:#0d1117}
+@media (max-width:600px){ .sim-steps{font-size:13px} .sim-line{min-height:28px} }
