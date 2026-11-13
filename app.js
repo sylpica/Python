@@ -479,6 +479,39 @@ $('#sideSearch').addEventListener('input', renderSideList);
 window.__sideRef = id => { const r = refById[id]; if (r) { sideTab = 'ref'; renderSideList(); showSideRef(r); } };
 window.__sideTerm = id => { const g = termById[id]; if (g) { sideTab = 'gloss'; renderSideList(); showSideTerm(g); } };
 
+/* 「このコードで使っている関数」：編集中のコードをエンジンで解析し、使われている関数・メソッドを
+   サイドパネル（用語集の横）に並べる。チップはリファレンス／用語集へリンクし、自作関数は定義行へ跳ぶ。 */
+const refByBare = {}; REFERENCE.forEach(r => { if (!refByBare[r.id]) refByBare[r.id] = r; const bare = r.name.replace(/\(\)$/, ''); if (!refByBare[bare]) refByBare[bare] = r; });
+const refMethodByName = {}; REFERENCE.forEach(r => { const seg = r.id.split('.').pop(); if (r.id.includes('.') && !refMethodByName[seg]) refMethodByName[seg] = r; });
+const glossByEn = {}; GLOSSARY.forEach(g => { if (g.en && !glossByEn[g.en]) glossByEn[g.en] = g; });
+window.__usedDef = line => { try { window.__simHooks.gotoLine(line, line); } catch(e) {} };
+function renderUsedFns(r){
+  const box = $('#usedFns'); if (!box) return;
+  const calls = r.usedCalls || [];
+  if (!calls.length) { box.innerHTML = '<span class="note">（まだ関数を使っていません）</span>'; return; }
+  box.innerHTML = calls.map(c => {
+    const label = (c.kind === 'method' ? '.' : '') + c.name + '()';
+    const ref = c.kind === 'method' ? (refMethodByName[c.name] || refByBare[c.name]) : (refById[c.name] || refByBare[c.name]);
+    if (ref) return `<button class="chip" onclick="__sideRef('${ref.id}')" title="リファレンスで見る">${esc(label)}</button>`;
+    const g = glossByEn[c.name];
+    if (g) return `<button class="chip" onclick="__sideTerm('${g.id}')" title="用語集で見る">${esc(label)}</button>`;
+    if (c.kind === 'func' && r.defLines && r.defLines[c.name]) return `<button class="chip" onclick="__usedDef(${r.defLines[c.name]})" title="定義した場所へ移動">${esc(label)}（自作）</button>`;
+    return `<span class="chip chip-plain">${esc(label)}</span>`;
+  }).join('');
+}
+let usedFnsCode = null;
+setInterval(() => {
+  if (!window.PySim) return;
+  let code; try { code = editorValue(); } catch(e) { return; }
+  if (code === usedFnsCode) return;
+  usedFnsCode = code;
+  const box = $('#usedFns'); if (!box) return;
+  if (!code || !code.trim()) { box.innerHTML = '<span class="note">コードを書くと、使っている関数がここに出ます。</span>'; return; }
+  let r; try { r = window.PySim.simulatePython(code); } catch(e) { return; }
+  if (r.parseFailed) return; // 打ちかけで文法が壊れている間は、直前の表示を保つ
+  renderUsedFns(r);
+}, 900);
+
 function lookupWordAtCursor(){
   let word = '', dotted = '';
   if (editor) {
