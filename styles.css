@@ -48,7 +48,7 @@ textarea.editor{height:330px;padding:8px}
 .console{background:#0d1117;color:#d6e2ef;font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-word;padding:8px;border-radius:6px;min-height:70px;max-height:260px;overflow:auto;font-size:13px}
 .used-fns{border-bottom:1px solid var(--line);padding:2px 2px 8px;margin-bottom:6px}
 .used-fns-head{font-size:12px;font-weight:600;color:var(--mut);margin-bottom:2px}
-.used-fns-list{display:flex;flex-wrap:wrap;gap:2px}
+.used-fns-list{display:flex;flex-wrap:wrap;gap:2px;max-height:min(240px,36vh);overflow-y:auto;overscroll-behavior:contain}
 .chip-plain{border:1px dashed var(--line);color:var(--mut);cursor:default;opacity:.75}
 .console .cerr{color:#ff9c94}
 .plot{max-width:100%;border:1px solid var(--line);border-radius:6px;margin-top:6px;background:#fff}
@@ -180,11 +180,6 @@ a{color:var(--acc)}
 .sim-path-note.hidden{display:none}
 .sim-path-choices{margin:4px 0 0;padding-left:20px}
 .sim-path-choices li{margin:2px 0}
-.used-vars{margin-top:8px}
-.used-vars-head{font-weight:600;font-size:12px;margin-bottom:2px}
-.used-var{display:block;width:100%;text-align:left;padding:1px 2px;border-radius:4px;font-size:12px;word-break:break-all}
-button.used-var{background:none;border:none;color:inherit;font:inherit;font-size:12px;cursor:pointer}
-button.used-var:hover{background:rgba(127,127,127,.14)}
 .sim-manual-row{margin-bottom:6px}
 .sim-sec h4{margin:6px 0 4px;font-size:14px}
 .sim-fix{color:var(--mut);font-size:13px;margin-top:2px}
