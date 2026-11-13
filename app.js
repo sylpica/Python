@@ -487,35 +487,21 @@ const glossByEn = {}; GLOSSARY.forEach(g => { if (g.en && !glossByEn[g.en]) glos
 window.__usedDef = line => { try { window.__simHooks.gotoLine(line, line); } catch(e) {} };
 function renderUsedFns(r){
   const box = $('#usedFns'); if (!box) return;
-  if (!r) { box.innerHTML = '<span class="note">コードを書くと、シミュレーションで使う関数と変数がここに出ます。</span>'; return; }
+  if (!r) { box.innerHTML = '<span class="note">コードを書くと、シミュレーションで使う関数がここに出ます。</span>'; return; }
   // 関数・メソッドは静的な抽出ではなく、実行シミュレータが表示中のパスで実際に現れた呼び出し（dynCalls）から取る。
-  // パスを切り替えると表示も切り替わる。変数も同じパスの最終状態から一緒に表示する。
+  // パスを切り替えると表示も切り替わる。変数は右パネルには出さない（ユーザー決定 2026-11-13：
+  // 変数の状態は下側のシミュレーション結果「最後の状態」に出るので、右側は関数のみ）。
   const calls = r.dynCalls || [];
-  const vars = r.vars || [];
-  if (!calls.length && !vars.length) { box.innerHTML = '<span class="note">（このパスでは関数も変数も使っていません）</span>'; return; }
-  let html = '';
-  if (calls.length) {
-    html += calls.map(c => {
-      const label = (c.kind === 'method' ? '.' : '') + c.name + '()';
-      const ref = c.kind === 'method' ? (refMethodByName[c.name] || refByBare[c.name]) : (refById[c.name] || refByBare[c.name]);
-      if (ref) return `<button class="chip" onclick="__sideRef('${ref.id}')" title="リファレンスで見る">${esc(label)}</button>`;
-      const g = glossByEn[c.name];
-      if (g) return `<button class="chip" onclick="__sideTerm('${g.id}')" title="用語集で見る">${esc(label)}</button>`;
-      if (c.kind === 'func' && r.defLines && r.defLines[c.name]) return `<button class="chip" onclick="__usedDef(${r.defLines[c.name]})" title="定義した場所へ移動">${esc(label)}（自作）</button>`;
-      return `<span class="chip chip-plain">${esc(label)}</span>`;
-    }).join('');
-  } else {
-    html += '<span class="note">（このパスでは関数を使っていません）</span>';
-  }
-  if (vars.length) {
-    html += '<div class="used-vars"><div class="used-vars-head">変数（このパスの最終状態）</div>' + vars.map(v => {
-      const val = v.value && v.value.length > 60 ? v.value.slice(0, 60) + '…' : v.value;
-      const inner = esc(v.name) + ' = ' + esc(val) + ' <span class="status">（' + esc(v.type) + '）</span>';
-      if (v.line && v.line >= 1) return `<button class="used-var" onclick="__usedDef(${v.line})" title="代入した場所へ移動">${inner}</button>`;
-      return `<div class="used-var">${inner}</div>`;
-    }).join('') + '</div>';
-  }
-  box.innerHTML = html;
+  if (!calls.length) { box.innerHTML = '<span class="note">（このパスでは関数を使っていません）</span>'; return; }
+  box.innerHTML = calls.map(c => {
+    const label = (c.kind === 'method' ? '.' : '') + c.name + '()';
+    const ref = c.kind === 'method' ? (refMethodByName[c.name] || refByBare[c.name]) : (refById[c.name] || refByBare[c.name]);
+    if (ref) return `<button class="chip" onclick="__sideRef('${ref.id}')" title="リファレンスで見る">${esc(label)}</button>`;
+    const g = glossByEn[c.name];
+    if (g) return `<button class="chip" onclick="__sideTerm('${g.id}')" title="用語集で見る">${esc(label)}</button>`;
+    if (c.kind === 'func' && r.defLines && r.defLines[c.name]) return `<button class="chip" onclick="__usedDef(${r.defLines[c.name]})" title="定義した場所へ移動">${esc(label)}（自作）</button>`;
+    return `<span class="chip chip-plain">${esc(label)}</span>`;
+  }).join('');
 }
 // コード説明（実行シミュレータ）の表示が変わるたびに、lib/sim-ui.js から呼ばれる
 window.__usedFnsUpdate = r => { try { renderUsedFns(r); } catch(e) {} };
