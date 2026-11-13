@@ -173,14 +173,25 @@ window.__goMistake = id => { showView('mistakes'); selectMistake(id); };
 window.__goEnv = id => { showView('env'); const el = document.getElementById('env-' + id); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1500); } };
 window.__goQuiz = id => { showView('quiz'); const z = QUIZZES.find(x => x.id === id); if (!z) return; setQmode('choice'); quizQueue = [withShuffledOptions(z)]; quizIdx = 0; quizRight = 0; showChoice(); };
 /* コード説明パネル（lib/sim-ui.js）との連携口：今のファイルの内容・行ジャンプ・用語一覧 */
+let simHlDecor = []; // コード説明から跳んだ行のハイライト（次の選択か編集まで保持）
 window.__simHooks = {
   code: () => editorValue(),
-  gotoLine(n){
-    if (editor) { editor.revealLineInCenter(n); editor.setPosition({ lineNumber: n, column: 1 }); editor.focus(); return; }
+  gotoLine(n, end){
+    if (editor) {
+      const model = editor.getModel(); const total = model ? model.getLineCount() : n;
+      const ln = Math.max(1, Math.min(n, total)); const en = Math.max(ln, Math.min(end || n, total));
+      editor.revealLineInCenter(ln);
+      if (window.monaco && model) simHlDecor = editor.deltaDecorations(simHlDecor, [{ range: new monaco.Range(ln, 1, en, model.getLineMaxColumn(en)), options: { isWholeLine: true, className: 'sim-hl-line' } }]);
+      editor.setPosition({ lineNumber: ln, column: 1 }); editor.focus(); return;
+    }
     const ta = $('#editorFallback'); if (!ta || ta.classList.contains('hidden')) return;
-    const ls = ta.value.split('\n'); let pos = 0;
-    for (let i = 0; i < n - 1 && i < ls.length; i++) pos += ls[i].length + 1;
-    ta.focus(); ta.setSelectionRange(pos, pos);
+    const ls = ta.value.split('\n');
+    const ln = Math.max(1, Math.min(n, ls.length)); const en = Math.max(ln, Math.min(end || n, ls.length));
+    let start = 0; for (let i = 0; i < ln - 1; i++) start += ls[i].length + 1;
+    let stop = start; for (let i = ln - 1; i < en; i++) stop += ls[i].length + (i < en - 1 ? 1 : 0);
+    ta.focus(); ta.setSelectionRange(start, stop); // 簡易エディタでは行範囲の選択でハイライトを代替する
+    const lh = parseFloat(getComputedStyle(ta).lineHeight) || 18;
+    ta.scrollTop = Math.max(0, (ln - 1) * lh - ta.clientHeight / 2 + lh / 2);
   },
   terms: () => GLOSSARY.map(g => ({ id: g.id, ja: g.ja, en: g.en })),
   goTerm: id => window.__goTerm(id)
@@ -236,6 +247,7 @@ function initEditor(){
         ariaLabel: 'Python コードエディタ', theme: document.documentElement.dataset.theme === 'dark' ? 'vs-dark' : 'vs' });
       window.monaco = monaco;
       editor.onDidChangeModelContent(onEdit);
+      editor.onDidChangeModelContent(() => { if (simHlDecor.length) simHlDecor = editor.deltaDecorations(simHlDecor, []); }); // 編集したら行対応は変わるのでハイライトを消す
       editor.onDidChangeCursorPosition(() => { if (lastDiag) renderDiagnostics(lastDiag); });
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCurrent);
       editor.onMouseDown(e => { if (e.event.detail === 2) lookupWordAtCursor(); });

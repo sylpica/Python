@@ -172,8 +172,19 @@ a{color:var(--acc)}
 .sim-steps{list-style:none;margin:4px 0;padding:0;font-size:14px}
 .sim-steps li{padding:2px 0;border-bottom:1px dashed var(--line);overflow-wrap:anywhere}
 .sim-steps li:last-child{border-bottom:none}
-.sim-line{background:none;border:none;padding:0 2px;color:var(--acc);cursor:pointer;font-size:12px;text-decoration:underline}
-.sim-out{font-family:ui-monospace,monospace;font-size:13px;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0;white-space:pre-wrap;word-break:break-word}
+.sim-line{padding:0 2px;color:var(--acc);font-size:12px;text-decoration:underline}
+.sim-out{font-family:ui-monospace,monospace;font-size:13px;background:var(--code);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin:4px 0}
+/* 説明エントリからコード行へ跳ぶ操作（ボタン相当：フォーカス表示・選択状態・ホバー） */
+.sim-jump{cursor:pointer;border-radius:4px}
+.sim-jump:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.sim-steps li.sim-jump:hover,.sim-out .sim-jump:hover{background:var(--panel)}
+.vars-view .sim-jump:hover{background:var(--bg)}
+.sim-jump.sim-sel{box-shadow:inset 0 0 0 1px var(--acc)}
+.diag-item.sim-jump:hover{border-left-color:var(--acc)}
+.diag-item.sim-jump.sim-sel{border-left-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.sim-outline{padding:0 2px;border-radius:3px;white-space:pre-wrap;word-break:break-word;min-height:1.25em}
+.sim-hl-line{background:rgba(255,190,40,.35)}
+[data-theme="dark"] .sim-hl-line{background:rgba(255,190,40,.30)}
 .sim-foot{margin-top:8px}
 /* コード説明: ダークテーマの選択中ボタンの文字は暗い色（白は約2.5:1で読みにくい） */
 [data-theme="dark"] .sim-mode-btn.active{color:#0d1117}
