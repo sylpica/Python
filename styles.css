@@ -175,6 +175,8 @@ a{color:var(--acc)}
 .sim-path-row.hidden{display:none}
 .sim-path-row button{padding:2px 10px}
 .sim-path-pos{font-weight:700;white-space:nowrap}
+.sim-path-jump{display:inline-flex;gap:4px;align-items:center}
+.sim-path-jump input{width:64px;padding:2px 6px}
 .sim-path-title{flex:1 1 140px;min-width:100px}
 .sim-path-note{flex-basis:100%;margin:0;font-size:12px;color:var(--mut)}
 .sim-path-note.hidden{display:none}
