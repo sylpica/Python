@@ -3,7 +3,7 @@
 import { createRequire } from 'node:module';
 import { test, eq, ok, summary } from './lib/mini-test.mjs';
 const require = createRequire(import.meta.url);
-const { simulatePython } = require('../lib/sim.js');
+const { simulatePython, simulatePythonPaths } = require('../lib/sim.js');
 
 const out = (code) => simulatePython(code).output;
 const errs = (code) => simulatePython(code).diags.filter(d => d.level === 'error');
@@ -56,4 +56,7 @@ await test('行ジャンプ対応：行範囲は複合文の本体末尾まで�
 await test('行ジャンプ対応：未知分岐のプレースホルダ出力は分岐の行に対応する', async () => { const r = simulatePython('import random\nif random.random() < 0.5:\n    print("hi")\nprint("done")'); eq(r.outputLines, [2, 4]); const v = Object.fromEntries(r.vars.map(x => [x.name, x.line])); eq(v.random, 1); });
 await test('使用関数収集：関数・メソッド・自作関数の定義行を出現順に集める', async () => { const r = simulatePython('def twice(x):\n    return x * 2\nxs = [3, 1]\nxs.sort()\nprint(len(xs), twice(xs[0]))'); eq(r.usedCalls.map(c => c.kind + ':' + c.name).join(','), 'method:sort,func:print,func:len,func:twice'); eq(r.defLines.twice, 1); const r2 = simulatePython('print('); eq(r2.usedCalls, []); });
 await test('使用関数収集：デコレータと関数参照（key=len・map(str, …)）も数える', async () => { const r = simulatePython('def deco(f):\n    return f\n@deco\ndef g():\n    pass\nxs = ["bb", "a"]\nprint(sorted(xs, key=len), list(map(str, [1, 2])))'); const ns = r.usedCalls.map(c => c.name); ok(ns.includes('deco') && ns.includes('len') && ns.includes('str') && ns.includes('map') && ns.includes('sorted')); const r2 = simulatePython('h = print\nxs = [1]\nxs2 = list(map(h, xs))'); ok(!r2.usedCalls.some(c => c.name === 'h')); });
+await test('分岐パス：未知の if/else は2パス、elif 連鎖は3パス、独立 if 2つは4パス', async () => { const p = (c) => simulatePythonPaths(c); eq(p('x = input()\nif x:\n    print("a")\nelse:\n    print("b")').paths.map(q => q.result.output), [['a'], ['b']]); eq(p('a = input()\nb = input()\nif a:\n    print(1)\nelif b:\n    print(2)\nelse:\n    print(3)').paths.length, 3); eq(p('a = input()\nb = input()\nif a:\n    print(1)\nif b:\n    print(2)\nprint(9)').paths.length, 4); });
+await test('分岐パス：決まる分岐は1パスで従来結果と一致、爆発時は上限16＋打ち切り', async () => { const det = 'x = 5\nif x > 0:\n    print("pos")'; const r = simulatePythonPaths(det); eq(r.paths.length, 1); eq(r.hasBranches, false); eq(r.paths[0].result.steps, simulatePython(det).steps); const boom = Array.from({ length: 10 }, (_, i) => 'v' + i + ' = input()\nif v' + i + ':\n    print(' + i + ')').join('\n'); const rb = simulatePythonPaths(boom); eq(rb.paths.length, 16); eq(rb.truncated, true); });
+await test('分岐パス：未知 while は回数ごとのパス、未知 for は入る／入らないの2パス', async () => { const rw = simulatePythonPaths('n = 0\nx = input()\nwhile x:\n    n = n + 1\n    x = input()\nprint(n)'); eq(rw.paths.length, 7); eq(rw.truncated, true); eq(rw.paths.map(q => q.result.output[0]).sort(), ['0', '1', '2', '3', '4', '5', '6']); const rf = simulatePythonPaths('xs = input()\nfor v in xs:\n    print(v)\nprint("end")'); eq(rf.paths.length, 2); eq(rf.truncated, false); });
 summary('sim ');
