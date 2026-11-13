@@ -92,6 +92,20 @@
         </div>
         <div id="simPanel" class="sim-panel">
           <div id="simManualRow" class="sim-manual-row hidden"><button id="simRunBtn" type="button" class="primary">▶ コードを説明する</button></div>
+          <div id="simPathRow" class="sim-path-row hidden">
+            <button id="simPathPrev" type="button" aria-label="前の分岐パス">◀</button>
+            <span id="simPathPos" class="sim-path-pos" aria-live="polite"></span>
+            <span id="simPathTitle" class="sim-path-title"></span>
+            <button id="simPathNext" type="button" aria-label="次の分岐パス">▶</button>
+            <label class="sim-path-sort">並び替え
+              <select id="simPathSort" aria-label="分岐パスの並び替え">
+                <option value="default">出現順</option>
+                <option value="long">コードが長い順</option>
+                <option value="short">処理が短い順</option>
+              </select>
+            </label>
+            <p id="simPathNote" class="sim-path-note hidden">分岐が多いため、表示は最大16件までです。すべての分岐パスは表示されていません。</p>
+          </div>
           <div id="simBody" class="sim-body"><p class="note">コードを書くと、実行しなくても動きを説明します。</p></div>
         </div>
       </div>
