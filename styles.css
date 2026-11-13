@@ -170,6 +170,7 @@ a{color:var(--acc)}
 .sim-mode-btn{font-size:13px;padding:3px 9px}
 .sim-mode-btn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
 .sim-panel{border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--bg)}
+.sim-body{max-height:min(400px,50vh);overflow-y:auto;overscroll-behavior:contain;padding-right:4px}
 .sim-manual-row{margin-bottom:6px}
 .sim-sec h4{margin:6px 0 4px;font-size:14px}
 .sim-fix{color:var(--mut);font-size:13px;margin-top:2px}
