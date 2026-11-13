@@ -416,8 +416,8 @@ $('#nbStop').addEventListener('click', stopKernel);   // the Notebook view has n
 $('#resetKernelBtn').addEventListener('click', async () => { await enqueue(() => callWorker({ type:'reset' })); nbExecCount = 0; renderVars([]); setStatus('カーネルをリセットしました（変数・読み込んだ自作モジュールを消去）'); });
 $$('.pkg-btns button').forEach(b => b.addEventListener('click', () => { setStatus(b.dataset.pkg + ' を読み込み中…'); enqueue(() => callWorker({ type:'load', packages:[b.dataset.pkg] })); }));
 $('#sampleCsvBtn').addEventListener('click', () => { if (files['sales.csv'] != null && !confirm('「sales.csv」は既にあります。サンプルの内容で上書きしますか？')) return; files['sales.csv'] = 'month,sales\n1,120\n2,150\n3,90\n4,200\n'; saveFiles(); renderTabs(); setStatus('sales.csv を作成しました。pd.read_csv("sales.csv") で読み込めます'); });
-$('#fileUpload').addEventListener('change', async e => {
-  const list = [...e.target.files]; if (!list.length) return;
+async function importFiles(list){
+  const written = [];
   for (const f of list) {
     const err = validFileName(f.name); if (err) { alert(`「${f.name}」は取り込めません: ${err}`); continue; }
     const nc = nameConflict(f.name, files); if (nc) { alert(`「${f.name}」は取り込めません: ${nc}`); continue; }
@@ -428,9 +428,31 @@ $('#fileUpload').addEventListener('change', async e => {
     try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(buf); if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); } catch(err2) { text = null; }
     if (text === null) { let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000)); files[f.name] = 'base64:' + btoa(bin); }
     else files[f.name] = text;
+    written.push(f.name);
   }
-  e.target.value = '';
-  saveFiles(); renderTabs(); if (files[list[0].name] != null) switchFile(list[0].name);
+  saveFiles(); renderTabs(); if (list.length && files[list[0].name] != null) switchFile(list[0].name);
+  return written;
+}
+$('#fileUpload').addEventListener('change', async e => {
+  const list = [...e.target.files]; e.target.value = '';
+  if (list.length) await importFiles(list);
+});
+/* ファイルのドラッグ&ドロップ取込：OS からファイルをこのウィンドウへ落とすと取り込んで Studio で開く。
+   判定は dataTransfer.types の 'Files' のみ（エディタ内のテキストのドラッグは妨げない）。 */
+let dragDepth = 0;
+const dragHasFiles = e => { try { return !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files')); } catch(err) { return false; } };
+const hideDropOverlay = () => { dragDepth = 0; const o = $('#dropOverlay'); if (o) o.classList.add('hidden'); };
+window.addEventListener('dragenter', e => { if (!dragHasFiles(e)) return; e.preventDefault(); dragDepth++; const o = $('#dropOverlay'); if (o) o.classList.remove('hidden'); });
+window.addEventListener('dragover', e => { if (!dragHasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
+window.addEventListener('dragleave', e => { if (!dragHasFiles(e)) return; if (--dragDepth <= 0) hideDropOverlay(); });
+window.addEventListener('dragend', hideDropOverlay);
+window.addEventListener('drop', async e => {
+  if (!dragHasFiles(e)) return;
+  e.preventDefault(); hideDropOverlay();
+  const list = [...(e.dataTransfer.files || [])]; if (!list.length) return;
+  const written = await importFiles(list);
+  showView('studio');
+  if (written.length) setStatus('ドラッグで取り込みました: ' + written.join(', '));
 });
 $('#fontSize').addEventListener('change', e => { const v = Math.min(22, Math.max(11, Number(e.target.value) || 14)); store.set('fontSize', v); if (editor) editor.updateOptions({ fontSize: v }); });
 $('#fontSize').value = store.get('fontSize', 14);
