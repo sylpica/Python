@@ -424,8 +424,16 @@ async function importFiles(list){
     if (files[f.name] != null && !confirm(`「${f.name}」は既にあります。上書きしますか？`)) continue;
     const buf = new Uint8Array(await f.arrayBuffer());
     let text = null;
-    // keep bytes exactly: UTF-8 (without BOM) is stored as text, anything else as binary
+    // 文字コード自動判定：まず UTF-8 として厳密に読めればテキストとして保持する（バイト列をそのまま保つ）。
+    // 読めない場合は CP932(Shift_JIS) として読み、置換文字（化け）や制御文字が無ければテキストとする。
+    // どちらでもないものはバイナリとして保持する（従来どおり）。
     try { text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(buf); if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); } catch(err2) { text = null; }
+    if (text === null) {
+      try {
+        const sjis = new TextDecoder('shift_jis').decode(buf);
+        if (!sjis.includes('\uFFFD') && !/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(sjis)) text = sjis;
+      } catch(err3) { /* デコーダが使えない環境ではバイナリ扱いにする */ }
+    }
     if (text === null) { let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000)); files[f.name] = 'base64:' + btoa(bin); }
     else files[f.name] = text;
     written.push(f.name);
